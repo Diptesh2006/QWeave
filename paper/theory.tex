@@ -21,3 +21,11 @@ The local-search mapper terminates.
 The neighborhood size is finite. The algorithm only accepts moves that strictly decrease the objective function. Because the state space of permutations is finite and the sequence of accepted objective values is strictly monotonically decreasing, the search must terminate.
 \end{proof}
 \noindent \textbf{Verified by:} \texttt{tests/test\_proof\_prop1.py::test\_prop1\_local\_search\_strict\_descent\_and\_termination}
+
+\begin{lemma}[SWAP Preserves Injectivity]
+A legally inserted SWAP operation between two adjacent physical sites symmetrically updates the forward mapping $\pi$ and its inverse, strictly preserving injectivity (Assumption \ref{A:injective}).
+\end{lemma}
+\begin{proof}[Proof Sketch]
+A SWAP exchanges the logical occupants of physical sites $u$ and $v$. Because it is a bijection on the physical sites and updates the mapping symmetrically, two distinct logical qubits will never be assigned to the same physical site, preserving one-to-one correspondence.
+\end{proof}
+\noindent \textbf{Verified by:} \texttt{tests/test\_proof\_lemma1.py::test\_lemma1\_swaps\_preserve\_injectivity}
