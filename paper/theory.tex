@@ -65,3 +65,11 @@ For a fixed routed circuit, the list scheduler packs operations without violatin
 The scheduler maintains a strict per-wire directed dependency graph. By construction, an operation only enters the ready set when all its predecessors on all its physical qubits have finished. As a result, temporal overlaps on the same qubit are prohibited, and sequence order is strictly preserved.
 \end{proof}
 \noindent \textbf{Verified by:} \texttt{tests/test\_list\_scheduler.py::test\_critical\_path\_priority\_packs\_disjoint\_work\_without\_depth\_claim}
+
+\begin{theorem}[Fallback Termination]
+On a connected hardware graph (Assumption \ref{A:connected}), the sequential environment router with shortest-path fallback completes in finite steps.
+\end{theorem}
+\begin{proof}[Proof Sketch]
+If the policy fails to make topological progress for a bounded number of steps, the environment forcibly interrupts the policy. It computes the deterministic shortest path in $G_H$ between the separated operands, emits the required SWAPs, and executes the pending gate, guaranteeing finite-time frontier progress.
+\end{proof}
+\noindent \textbf{Verified by:} \texttt{tests/test\_proof\_thm4.py::test\_thm4\_fallback\_completes\_on\_random\_connected\_graphs}
