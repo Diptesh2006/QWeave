@@ -56,6 +56,15 @@ The list scheduler operates only after a legal route is fixed. It builds depende
 
 `qweave.core.compiler.compile_deterministic(circuit, graph, method="basic" | "weighted", schedule=False)` is the integrated reference entry point. It returns the routing result, initial layout, small-unitary status (or `None` outside scope), and separate source/routed/scheduled stage metrics. SABRE and CP-SAT remain separate comparison methods; the latter is never a routing result.
 
+## Formal guarantees
+
+The core correctness constraints and compiler algorithms are backed by formal mathematical proofs documenting routing termination, layout legality, semantic equivalence, and post-routing makespan lower bounds.
+- **[Assumption Register](docs/ASSUMPTION_REGISTER.md)**: Documents the explicit scope of compilation (e.g. injective mapping, unconditioned operations).
+- **[Proof-Test Matrix](docs/PROOF_TEST_MATRIX.md)**: Links each formalized lemma and theorem to its deterministic property-based test.
+- **[Mathematical Foundations](paper/theory.tex)**: Contains the LaTeX theorems, notations, and theoretical proofs underpinning the routing architectures.
+- **[Correctness Review](docs/CORRECTNESS_REVIEW.md)**: Audits alignment between the implemented architecture and the theoretical proofs, resolving discrepancies and open issues.
+- **[Scheduler Note](docs/SCHEDULER_NOTE.md)**: Confirms the fixed-route scheduling algorithm and ratio metric constraints.
+
 ## Objective and metrics
 
 For interaction edge `(i, j)`, the mapping objective is `weight(i,j) * shortest_path_distance(mapping[i], mapping[j])`, summed over all interaction edges. Metrics include depth, total operations, two-qubit operations, SWAPs, runtime, absolute depth overhead, and zero-safe relative overhead.
@@ -113,4 +122,5 @@ Team roles are documented in `AGENTS.md`: Atharva Sheersh Pandey owns integratio
 ## Research disclaimer
 
 This is research code. Validate compiled circuits and inspect raw results before drawing conclusions. The deterministic fallback is a correctness/reference implementation, not a claim of superiority over SABRE.
+
 
