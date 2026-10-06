@@ -1,0 +1,15 @@
+\section{Formal Guarantees}
+\label{sec:formal_guarantees}
+
+\subsection{Notation and Assumptions}
+We establish the following formal assumptions for QWeave's symbolic operation. Let $L$ be the set of logical qubits and $P$ the physical sites. The hardware connectivity is an undirected graph $G_H=(P, E_H)$. 
+
+\begin{enumerate}
+    \item \label{A:injective} \textbf{Injective Mapping}: The mapping $\pi: L \to P$ is strictly injective, obeying the convention $\pi(l) = p$, often written \texttt{mapping[logical] = physical}.
+    \item \label{A:undirected} \textbf{Undirected Routing}: Routing searches for paths over undirected hardware edges.
+    \item \label{A:contiguous} \textbf{Contiguous Labels}: Physical qubit labels are contiguous integers $0 \dots |P|-1$.
+    \item \label{A:connected} \textbf{Connected Component}: The hardware $G_H$ is a connected graph with $|P| \ge |L|$.
+    \item \label{A:gate_family} \textbf{Supported Gate Family}: The circuit consists of unconditioned one- and two-qubit unitaries, resets, and terminal measurements. Dynamic control and active mid-circuit classical conditioning are rejected.
+    \item \label{A:durations} \textbf{Positive Durations}: Gate durations $\tau > 0$ are strictly positive.
+    \item \label{A:global_phase} \textbf{Global Phase}: The global phase of the source is preserved across compilation.
+\end{enumerate}

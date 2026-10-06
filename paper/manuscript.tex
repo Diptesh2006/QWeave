@@ -2,6 +2,10 @@
 \usepackage[margin=1.8cm]{geometry}
 \usepackage{mathptmx}
 \usepackage{amsmath,amssymb}
+\usepackage{amsthm}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
 \usepackage{url}
 \usepackage{booktabs}
 \usepackage{graphicx}
@@ -189,6 +193,8 @@ control retains the optimizer and reward, while an untrained graph control
 retains the architecture without PPO updates. All learned variants begin with
 the weighted deterministic initial mapping, which makes this a routing-policy
 comparison rather than a learned-layout experiment.
+
+\input{theory.tex}
 
 \section{Validation and Experimental Design}
 The structural validator checks mapping completeness, injectivity, source
