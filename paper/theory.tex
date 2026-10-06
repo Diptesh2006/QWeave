@@ -29,3 +29,11 @@ A legally inserted SWAP operation between two adjacent physical sites symmetrica
 A SWAP exchanges the logical occupants of physical sites $u$ and $v$. Because it is a bijection on the physical sites and updates the mapping symmetrically, two distinct logical qubits will never be assigned to the same physical site, preserving one-to-one correspondence.
 \end{proof}
 \noindent \textbf{Verified by:} \texttt{tests/test\_proof\_lemma1.py::test\_lemma1\_swaps\_preserve\_injectivity}
+
+\begin{lemma}[Masked Softmax Probabilities]
+The learned graph policy assigns strictly zero probability to illegal topological actions.
+\end{lemma}
+\begin{proof}[Proof Sketch]
+The environment yields a binary \texttt{action\_mask} based on current frontier legality. The Graph Actor--Critic applies a large negative logit to masked indices before softmax normalization, ensuring their probability is mathematically compressed to zero ($<10^{-12}$) and the remaining legal actions sum to one.
+\end{proof}
+\noindent \textbf{Verified by:} \texttt{tests/test\_proof\_lemma2.py::test\_lemma2\_masked\_softmax\_zero\_illegal}
