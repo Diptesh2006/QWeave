@@ -37,3 +37,11 @@ The learned graph policy assigns strictly zero probability to illegal topologica
 The environment yields a binary \texttt{action\_mask} based on current frontier legality. The Graph Actor--Critic applies a large negative logit to masked indices before softmax normalization, ensuring their probability is mathematically compressed to zero ($<10^{-12}$) and the remaining legal actions sum to one.
 \end{proof}
 \noindent \textbf{Verified by:} \texttt{tests/test\_proof\_lemma2.py::test\_lemma2\_masked\_softmax\_zero\_illegal}
+
+\begin{theorem}[Hardware Legality]
+Every two-qubit operation emitted by the router lies on an undirected edge of $G_H$ (Assumption \ref{A:undirected}). After direction-lowering synthesis, every resulting operation respects the strictly directed couplers of the physical device.
+\end{theorem}
+\begin{proof}[Proof Sketch]
+The router emits source gates only when their mapped physical qubits are adjacent in $G_H$, and inserts SWAPs only along $G_H$ edges. The independent lowering pass explicitly synthesizes reverse-CNOTs and directed-SWAPs using only native one-way arcs.
+\end{proof}
+\noindent \textbf{Verified by:} \texttt{tests/test\_proof\_thm1.py::test\_thm1\_hardware\_legality\_undirected\_and\_directed}
