@@ -192,7 +192,7 @@ gradient clipping. We train five explicit seeds. A zero-message-passing PPO
 control retains the optimizer and reward, while an untrained graph control
 retains the architecture without PPO updates. All learned variants begin with
 the weighted deterministic initial mapping, which makes this a routing-policy
-comparison rather than a learned-layout experiment.
+comparison rather than a learned-layout experiment. The theoretical guarantees underpinning both the deterministic architecture and the learned routing policy are formalized in Section \ref{sec:formal_guarantees}.
 
 \input{theory.tex}
 
@@ -308,6 +308,8 @@ direction-dependent cost fields. Route depth, SWAP count, runtime, policy,
 split, and semantic results did not change. This correction prevents the
 directed-legality check from being presented separately from an incompatible
 undirected cost calculation.
+
+Several limitations apply to the formal and empirical results. The compiler's supported gate family is strictly limited to unconditioned one- and two-qubit unitaries, resets, and terminal measurements; active dynamic control and mid-circuit classical conditioning remain explicitly unsupported. Furthermore, while the post-routing list scheduler achieves a makespan-to-lower-bound ratio of 1.0 on any given fixed routed circuit, this establishes only that it optimally packs that specific physical-wire dependency graph without claiming any global cross-routing optimality.
 
 \section{Conclusion}
 QWeave now combines an explicit deterministic reference, a small mapping
