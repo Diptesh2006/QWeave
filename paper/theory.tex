@@ -57,3 +57,11 @@ Given Assumption \ref{A:gate_family} (supported gate family) and Assumption \ref
 SWAP insertions are state-preserving permutations that update $\pi$. Applying the initial permutation matches the logical bases to the physical register. Executing the routed circuit applies the source unitaries along with permutation updates. Reversing the final physical permutation returns the state back to the original logical basis, matching the unitary operator of the original circuit.
 \end{proof}
 \noindent \textbf{Verified by:} \texttt{tests/test\_proof\_thm2.py::test\_thm2\_equivalence\_up\_to\_layout\_permutations\_equal\_width}
+
+\begin{theorem}[Scheduler Feasibility]
+For a fixed routed circuit, the list scheduler packs operations without violating physical-wire precedences, and no two operations overlapping in time share a physical qubit.
+\end{theorem}
+\begin{proof}[Proof Sketch]
+The scheduler maintains a strict per-wire directed dependency graph. By construction, an operation only enters the ready set when all its predecessors on all its physical qubits have finished. As a result, temporal overlaps on the same qubit are prohibited, and sequence order is strictly preserved.
+\end{proof}
+\noindent \textbf{Verified by:} \texttt{tests/test\_list\_scheduler.py::test\_critical\_path\_priority\_packs\_disjoint\_work\_without\_depth\_claim}
