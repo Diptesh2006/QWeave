@@ -22,6 +22,87 @@ class ScheduleResult:
     depth_delta: int
 
 
+def verify_schedule(circuit: QuantumCircuit, schedule: ScheduleResult, durations: dict[str, float] | None = None) -> tuple[bool, str | None]:
+    """Verify independent schedule properties."""
+    durations = durations or {}
+    source_ops = source_operations(circuit)
+    sched_ops = source_operations(schedule.circuit)
+    
+    if circuit.global_phase != schedule.circuit.global_phase:
+        return False, "Global phase changed"
+        
+    def op_tuple(item):
+        return (item.operation.name, tuple(item.qubits), tuple(item.clbits))
+        
+    if sorted(map(op_tuple, source_ops)) != sorted(map(op_tuple, sched_ops)):
+        return False, "Operation multiset changed"
+        
+    timing = sorted(schedule.timing, key=lambda x: x["start"])
+    if sorted([t["gate_index"] for t in timing]) != list(range(len(source_ops))):
+        return False, "Schedule timing does not cover exactly all source gates"
+        
+    # Check durations and overlaps
+    qubit_events = {q: [] for q in range(circuit.num_qubits)}
+    for t in timing:
+        idx = t["gate_index"]
+        op = source_ops[idx]
+        expected_dur = float(durations.get(op.operation.name, 1.0))
+        if not math.isclose(t["finish"] - t["start"], expected_dur, abs_tol=1e-9):
+            return False, f"Gate {idx} duration mismatch"
+        for q in op.qubits:
+            qubit_events[q].append(t)
+            
+    # Check overlap and order
+    for q, events in qubit_events.items():
+        # sorted by start time
+        for i in range(len(events) - 1):
+            if events[i]["finish"] > events[i+1]["start"] + 1e-9:
+                return False, f"Overlap on qubit {q} between gate {events[i]['gate_index']} and {events[i+1]['gate_index']}"
+                
+    # Check source order preserved
+    source_qubit_order = {q: [] for q in range(circuit.num_qubits)}
+    for i, op in enumerate(source_ops):
+        for q in op.qubits:
+            source_qubit_order[q].append(i)
+            
+    for q, events in qubit_events.items():
+        sched_order = [e["gate_index"] for e in events]
+        if sched_order != source_qubit_order[q]:
+            return False, f"Gate order not preserved on qubit {q}"
+            
+    # Check predecessors
+    # Predecessor finish <= Start is guaranteed by overlap check + order check
+    
+    return True, None
+
+
+def makespan_lower_bound(circuit: QuantumCircuit, durations: dict[str, float] | None = None) -> float:
+    durations = durations or {}
+    ops = source_operations(circuit)
+    
+    # 1. Critical path
+    finish_times = [0.0] * circuit.num_qubits
+    for op in ops:
+        dur = float(durations.get(op.operation.name, 1.0))
+        start = max((finish_times[q] for q in op.qubits), default=0.0)
+        for q in op.qubits:
+            finish_times[q] = start + dur
+    critical_path = max(finish_times, default=0.0)
+    
+    # 2. Max per-qubit sum
+    per_qubit_sum = [0.0] * circuit.num_qubits
+    for op in ops:
+        dur = float(durations.get(op.operation.name, 1.0))
+        for q in op.qubits:
+            per_qubit_sum[q] += dur
+    max_load = max(per_qubit_sum, default=0.0)
+    
+    return max(critical_path, max_load)
+
+def makespan_ratio(makespan: float, bound: float) -> float:
+    return makespan / bound if bound > 0 else 1.0
+
+
 def schedule_routed_circuit(circuit: QuantumCircuit, coupling_graph: nx.Graph,
                             gate_durations: dict[str, float] | None = None) -> ScheduleResult:
     """Pack legal gates at earliest resource-ready times.
