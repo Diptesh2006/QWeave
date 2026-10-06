@@ -13,3 +13,11 @@ We establish the following formal assumptions for QWeave's symbolic operation. L
     \item \label{A:durations} \textbf{Positive Durations}: Gate durations $\tau > 0$ are strictly positive.
     \item \label{A:global_phase} \textbf{Global Phase}: The global phase of the source is preserved across compilation.
 \end{enumerate}
+
+\begin{proposition}[Local-Search Termination]
+The local-search mapper terminates.
+\end{proposition}
+\begin{proof}[Proof Sketch]
+The neighborhood size is finite. The algorithm only accepts moves that strictly decrease the objective function. Because the state space of permutations is finite and the sequence of accepted objective values is strictly monotonically decreasing, the search must terminate.
+\end{proof}
+\noindent \textbf{Verified by:} \texttt{tests/test\_proof\_prop1.py::test\_prop1\_local\_search\_strict\_descent\_and\_termination}
