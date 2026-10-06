@@ -45,3 +45,15 @@ Every two-qubit operation emitted by the router lies on an undirected edge of $G
 The router emits source gates only when their mapped physical qubits are adjacent in $G_H$, and inserts SWAPs only along $G_H$ edges. The independent lowering pass explicitly synthesizes reverse-CNOTs and directed-SWAPs using only native one-way arcs.
 \end{proof}
 \noindent \textbf{Verified by:} \texttt{tests/test\_proof\_thm1.py::test\_thm1\_hardware\_legality\_undirected\_and\_directed}
+
+\begin{theorem}[Semantic Equivalence]
+Given Assumption \ref{A:gate_family} (supported gate family) and Assumption \ref{A:injective} ($\pi(l) = p$), the routed unitary circuit is semantically equivalent to the source circuit up to initial and final layout permutations. That is,
+\begin{equation}
+ U_{\mathrm{routed}} P_{\mathrm{initial}} = P_{\mathrm{final}} U_C.
+ \label{eq:equivalence_theory}
+\end{equation}
+\end{theorem}
+\begin{proof}[Proof Sketch]
+SWAP insertions are state-preserving permutations that update $\pi$. Applying the initial permutation matches the logical bases to the physical register. Executing the routed circuit applies the source unitaries along with permutation updates. Reversing the final physical permutation returns the state back to the original logical basis, matching the unitary operator of the original circuit.
+\end{proof}
+\noindent \textbf{Verified by:} \texttt{tests/test\_proof\_thm2.py::test\_thm2\_equivalence\_up\_to\_layout\_permutations\_equal\_width}
