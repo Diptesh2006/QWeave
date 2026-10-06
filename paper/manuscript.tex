@@ -2,6 +2,10 @@
 \usepackage[margin=1.8cm]{geometry}
 \usepackage{mathptmx}
 \usepackage{amsmath,amssymb}
+\usepackage{amsthm}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
 \usepackage{url}
 \usepackage{booktabs}
 \usepackage{graphicx}
@@ -188,7 +192,9 @@ gradient clipping. We train five explicit seeds. A zero-message-passing PPO
 control retains the optimizer and reward, while an untrained graph control
 retains the architecture without PPO updates. All learned variants begin with
 the weighted deterministic initial mapping, which makes this a routing-policy
-comparison rather than a learned-layout experiment.
+comparison rather than a learned-layout experiment. The theoretical guarantees underpinning both the deterministic architecture and the learned routing policy are formalized in Section \ref{sec:formal_guarantees}.
+
+\input{theory.tex}
 
 \section{Validation and Experimental Design}
 The structural validator checks mapping completeness, injectivity, source
@@ -271,7 +277,7 @@ Family results expose the aggregate mechanism. On hardware-efficient circuits,
 weighted, GNN--PPO, and no-message PPO all had median depth 27 and no SWAPs. On
 QFT, weighted routing had median depth 71.5 and 16.5 SWAPs, GNN--PPO had 83.5
 and 41, and no-message PPO had 90 and 31.5. GNN--PPO improved by eight depth
-layers on \texttt{qft\_i1\_6q\_chorded\_ring}, but regressed by 89 layers and
+layers on \texttt{qft\_i1\_6q\_chorded\_ring}, but regressed by 89 depth gates and
 130 SWAPs on \texttt{qft\_i1\_8q\_grid2}. The GNN policy invoked 4,543 test
 fallbacks, compared with 742 for no-message PPO and zero for deterministic
 methods. Seed 29 was unstable, ending with 212 training fallbacks and a recent
@@ -303,6 +309,8 @@ split, and semantic results did not change. This correction prevents the
 directed-legality check from being presented separately from an incompatible
 undirected cost calculation.
 
+
+
 \section{Conclusion}
 QWeave now combines an explicit deterministic reference, a small mapping
 oracle, fixed-route scheduling, and a guarded learned router with auditable
@@ -320,3 +328,7 @@ suites before making a superiority claim.
 \bibliographystyle{plain}
 \bibliography{references}
 \end{document}
+
+
+
+
