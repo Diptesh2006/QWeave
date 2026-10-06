@@ -73,3 +73,21 @@ On a connected hardware graph (Assumption \ref{A:connected}), the sequential env
 If the policy fails to make topological progress for a bounded number of steps, the environment forcibly interrupts the policy. It computes the deterministic shortest path in $G_H$ between the separated operands, emits the required SWAPs, and executes the pending gate, guaranteeing finite-time frontier progress.
 \end{proof}
 \noindent \textbf{Verified by:} \texttt{tests/test\_proof\_thm4.py::test\_thm4\_fallback\_completes\_on\_random\_connected\_graphs}
+
+\begin{lemma}[Makespan Lower Bound]
+For a \textbf{fixed routed circuit} with strictly positive durations (Assumption \ref{A:durations}), the schedule makespan is strictly bounded from below by the maximum of the critical-path duration and the maximum single-qubit summed load.
+\end{lemma}
+\begin{proof}[Proof Sketch]
+Under a strictly per-wire precedence model, any execution path forms a chain of dependencies. The critical path is the longest such chain in the directed acyclic graph. Any individual qubit's sequence of operations also forms a valid temporal chain. Therefore, the total elapsed time must be at least the maximal path length.
+\end{proof}
+\noindent \textbf{Verified by:} \texttt{tests/test\_scheduler\_verification.py::test\_makespan\_bounds\_always\_hold}
+
+\subsection{What These Results Do Not Establish}
+While the above symbolic and local checks guarantee strict physical legality and equivalence of the generated routing sequences, they do not imply:
+\begin{itemize}
+    \item Global optimality of the generated SWAP paths or layout mapping.
+    \item PPO training convergence, or any advantage over deterministic SABRE routing.
+    \item Improved physical device fidelity (as hardware noise calibration is absent).
+    \item Support for dynamic control flow or active mid-circuit classical conditioning.
+    \item Guarantee of success on disconnected hardware targets where fallback fails.
+\end{itemize}
