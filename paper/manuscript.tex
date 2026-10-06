@@ -277,7 +277,7 @@ Family results expose the aggregate mechanism. On hardware-efficient circuits,
 weighted, GNN--PPO, and no-message PPO all had median depth 27 and no SWAPs. On
 QFT, weighted routing had median depth 71.5 and 16.5 SWAPs, GNN--PPO had 83.5
 and 41, and no-message PPO had 90 and 31.5. GNN--PPO improved by eight depth
-layers on \texttt{qft\_i1\_6q\_chorded\_ring}, but regressed by 89 layers and
+layers on \texttt{qft\_i1\_6q\_chorded\_ring}, but regressed by 89 depth gates and
 130 SWAPs on \texttt{qft\_i1\_8q\_grid2}. The GNN policy invoked 4,543 test
 fallbacks, compared with 742 for no-message PPO and zero for deterministic
 methods. Seed 29 was unstable, ending with 212 training fallbacks and a recent
@@ -328,6 +328,7 @@ suites before making a superiority claim.
 \bibliographystyle{plain}
 \bibliography{references}
 \end{document}
+
 
 
 
