@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import pickle
 from pathlib import Path
 import sys
 
@@ -32,13 +33,19 @@ def _topology(name: str, logical_qubits: int, physical_qubits: int | None,
     if count < logical_qubits:
         raise ValueError("physical qubit count must be at least the circuit width")
     if name == "line":
+        if rows is not None or columns is not None or edges_file is not None:
+            raise ValueError("line topology does not accept grid dimensions or an edge file")
         return coupling_graph_from_edges([(i, i + 1) for i in range(count - 1)], count)
     if name == "ring":
+        if rows is not None or columns is not None or edges_file is not None:
+            raise ValueError("ring topology does not accept grid dimensions or an edge file")
         edges = [(i, i + 1) for i in range(count - 1)]
         if count > 2:
             edges.append((count - 1, 0))
         return coupling_graph_from_edges(edges, count)
     if name == "grid":
+        if edges_file is not None:
+            raise ValueError("grid topology does not accept --edges-file")
         if rows is None or columns is None or rows < 1 or columns < 1:
             raise ValueError("grid topology requires positive --rows and --columns")
         if rows * columns != count:
@@ -53,6 +60,8 @@ def _topology(name: str, logical_qubits: int, physical_qubits: int | None,
                     edges.append((node, node + columns))
         return coupling_graph_from_edges(edges, count)
     if name == "custom":
+        if rows is not None or columns is not None:
+            raise ValueError("custom topology does not accept grid dimensions")
         if edges_file is None:
             raise ValueError("custom topology requires --edges-file with num_qubits and edges")
         payload = json.loads(edges_file.read_text(encoding="utf-8"))
@@ -130,7 +139,8 @@ def _compile(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             qasm2.dump(export_circuit, handle)
     except FileExistsError:
         parser.error(f"refusing to overwrite existing output: {args.output}")
-    except (OSError, ImportError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+    except (OSError, ImportError, ValueError, KeyError, TypeError,
+            json.JSONDecodeError, qasm2.QASM2ParseError, pickle.UnpicklingError) as exc:
         parser.error(str(exc))
     summary = {
         "output": str(args.output),
@@ -157,7 +167,8 @@ def _validate(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         graph = _topology(args.topology, circuit.num_qubits, args.physical_qubits,
                           args.rows, args.columns, args.edges_file)
         validate_two_qubit_legality(circuit, graph)
-    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError,
+            qasm2.QASM2ParseError) as exc:
         parser.error(str(exc))
     print(json.dumps({"circuit": str(args.circuit), "status": "valid",
                       "hardware_legality": True,
