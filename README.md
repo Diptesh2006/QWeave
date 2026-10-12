@@ -32,6 +32,16 @@ Requires Python 3.11 or newer.
 python -m pip install -r requirements.txt
 python -m pip install -e ".[test,learning]"
 pytest -q
+python -m qweave --help
+
+# Deterministic QASM2 compilation
+python -m qweave compile --circuit examples/sample.qasm --topology line --router deterministic --output run_artifacts/sample-compiled.qasm
+
+# Learned routing with a compatible checkpoint
+python -m qweave compile --circuit examples/sample.qasm --topology line --router learned --checkpoint checkpoints/best.pt --output run_artifacts/sample-learned.qasm
+
+# Install the optional web dependencies before launching the studio
+python -m pip install -e ".[web]"
 
 # Run the interactive Web UI Studio
 python -m uvicorn web.server:app --host 127.0.0.1 --port 8000 --reload
