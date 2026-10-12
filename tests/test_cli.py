@@ -44,6 +44,56 @@ def test_cli_refuses_to_overwrite_compiled_output(tmp_path):
     assert output.read_text(encoding="utf-8") == "preserve"
 
 
+@pytest.mark.parametrize("command", ["compile", "validate"])
+def test_cli_reports_malformed_qasm_without_traceback(tmp_path, command):
+    source = tmp_path / "malformed.qasm"
+    source.write_text("OPENQASM 2.0; this is not qasm;", encoding="utf-8")
+    args = [command, "--circuit", str(source)]
+    if command == "compile":
+        args.extend(["--output", str(tmp_path / "out.qasm")])
+
+    with pytest.raises(SystemExit) as error:
+        main(args)
+
+    assert error.value.code == 2
+    assert not (tmp_path / "out.qasm").exists()
+
+
+def test_cli_rejects_topology_options_that_would_be_ignored():
+    with pytest.raises(ValueError, match="does not accept"):
+        _topology("line", 2, None, 1, None, None)
+    with pytest.raises(ValueError, match="does not accept"):
+        _topology("ring", 2, None, None, None, __import__("pathlib").Path("edges.json"))
+    with pytest.raises(ValueError, match="does not accept"):
+        _topology("grid", 2, 2, 1, 2, __import__("pathlib").Path("edges.json"))
+    with pytest.raises(ValueError, match="does not accept"):
+        _topology("custom", 2, None, 1, 2, None)
+
+
+def test_cli_reports_missing_learned_checkpoint(tmp_path):
+    source = tmp_path / "source.qasm"
+    _write_qasm(source)
+
+    with pytest.raises(SystemExit) as error:
+        main(["compile", "--circuit", str(source), "--router", "learned",
+              "--output", str(tmp_path / "out.qasm")])
+
+    assert error.value.code == 2
+
+
+def test_cli_reports_corrupt_learned_checkpoint(tmp_path):
+    source = tmp_path / "source.qasm"
+    checkpoint = tmp_path / "bad.pt"
+    _write_qasm(source)
+    checkpoint.write_bytes(b"not a checkpoint")
+
+    with pytest.raises(SystemExit) as error:
+        main(["compile", "--circuit", str(source), "--router", "learned",
+              "--checkpoint", str(checkpoint), "--output", str(tmp_path / "out.qasm")])
+
+    assert error.value.code == 2
+
+
 def test_cli_custom_topology_requires_enough_sites(tmp_path):
     source = tmp_path / "source.qasm"
     edge_file = tmp_path / "edges.json"
