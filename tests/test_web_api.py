@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from web.server import app
+from web.server import app, create_hardware_graph
 
 
 client = TestClient(app)
@@ -57,3 +57,25 @@ def test_compile_endpoint_marks_unsupported_operation_as_failure():
 def test_compile_endpoint_rejects_unknown_method():
     response = client.post("/api/compile", json={"method": "mystery"})
     assert response.status_code == 422
+
+
+def test_custom_topology_rejects_out_of_range_and_self_edges():
+    import pytest
+
+    with pytest.raises(ValueError, match="exceeds"):
+        create_hardware_graph("custom", [[0, 2]], custom_nodes=2)
+    with pytest.raises(ValueError, match="self-loops"):
+        create_hardware_graph("custom", [[1, 1]], custom_nodes=2)
+
+
+def test_compile_endpoint_reports_invalid_custom_topology():
+    response = client.post("/api/compile", json={
+        "circuit_mode": "preset",
+        "preset_circuit_id": "cnot_chain_4q",
+        "layout_id": "custom",
+        "custom_nodes": 3,
+        "custom_edges": [[0, 3]],
+        "method": "weighted",
+    })
+    assert response.status_code == 400
+    assert "declared node count" in response.json()["detail"]
