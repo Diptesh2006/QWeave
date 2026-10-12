@@ -32,6 +32,11 @@ Requires Python 3.11 or newer.
 python -m pip install -r requirements.txt
 python -m pip install -e ".[test,learning]"
 pytest -q
+
+# Run the interactive Web UI Studio
+python -m uvicorn web.server:app --host 127.0.0.1 --port 8000 --reload
+
+# Run batch experiments and benchmarks
 python scripts/run_smoke.py
 python scripts/run_baselines.py
 python scripts/run_scheduler_check.py
@@ -41,6 +46,25 @@ python scripts/run_study_v2.py
 ```
 
 The scripts create timestamped JSON and CSV files in `results/` and never overwrite an existing result. No IBM Quantum credentials or hardware are required.
+
+## Interactive compilation studio (Web UI)
+
+QWeave includes an interactive browser-based compilation and visualization studio located in `web/`.
+
+### Launching the Studio
+```bash
+python -m uvicorn web.server:app --host 127.0.0.1 --port 8000 --reload
+```
+Navigate to `http://127.0.0.1:8000` in any modern web browser.
+
+### Features
+- **Circuit selection and upload**: Select from built-in algorithmic presets (GHZ, Bernstein–Vazirani, QAOA MaxCut, QFT, Star graph, CNOT chains, HEA), drag-and-drop `.qasm` circuit files, or enter code in the integrated OpenQASM 2.0 editor.
+- **Hardware architecture explorer**: Choose standard topologies (linear paths, cycles, 2D grids, chorded rings, star, IBM Manila T-shape) or supply custom coupling edge lists.
+- **Routing method selection & comparison**: Compile circuits via QWeave Weighted (interaction degree seeding + strict local search + fallback router), QWeave Basic (identity mapping), Qiskit SABRE, or run all three simultaneously for side-by-side comparative evaluation.
+- **Metrics and validation**: Inspect inserted SWAPs, source vs. routed depth, depth overhead, gate counts, two-qubit execution counts, and automated legality/unitary verification status.
+- **Circuit diagram & code export**: View monospace routed circuit diagrams, structured gate layers, and copy or download the generated physical OpenQASM 2.0 file.
+- **Step-by-step route replay**: Interactive trace scrubber and canvas animator allowing users to step or play through every routed operation and watch logical qubits swap across physical hardware couplers.
+
 
 ## Implemented algorithms
 
@@ -115,7 +139,7 @@ notes](RELEASE_NOTES_v0.2.0.md) for the packaged scope and claim boundary.
 
 ## Current implementation status
 
-Implemented: weighted interaction graph, initial mapping, local search, deterministic fallback routing, Basic and SABRE baselines, route replay, exact and probe-based semantic checks, reset and terminal-measurement preservation, directed-coupler lowering, depth-aware list scheduling, declared duration/error proxies, metrics, a CP-SAT mapping oracle, a guarded Gymnasium routing environment, masked graph actor-critic, PPO training, ablation controls, a frozen benchmark-v2 harness, checkpoints, and paired bootstrap analysis. Dynamic classical control and a full exact-routing formulation remain outside the current scope; the CP-SAT component remains an initial-mapping oracle only.
+Implemented: weighted interaction graph, initial mapping, local search, deterministic fallback routing, Basic and SABRE baselines, route replay, exact and probe-based semantic checks, reset and terminal-measurement preservation, directed-coupler lowering, depth-aware list scheduling, declared duration/error proxies, metrics, an interactive web compilation studio (`web/`), a CP-SAT mapping oracle, a guarded Gymnasium routing environment, masked graph actor-critic, PPO training, ablation controls, a frozen benchmark-v2 harness, checkpoints, and paired bootstrap analysis. Dynamic classical control and a full exact-routing formulation remain outside the current scope; the CP-SAT component remains an initial-mapping oracle only.
 
 Team roles are documented in `AGENTS.md`: Atharva Sheersh Pandey owns integration and Qiskit adapters; Shrivardhini N owns formal model and scheduler; Diptesh Das owns deterministic optimisation, routing, baselines, and oracle; Haridasu Sreedhar owns RL/GNN/PPO work.
 
