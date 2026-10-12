@@ -10,6 +10,8 @@ from qiskit import qasm2, transpile
 
 from qweave.core.compiler import compile_deterministic
 from qweave.core.coupling import coupling_graph_from_edges
+from qweave.core.qiskit_adapter import source_operations
+from qweave.core.types import RoutingResult
 from qweave.core.validation import (
     validate_routing_result,
     validate_small_unitary_equivalence,
@@ -111,6 +113,13 @@ def _compile(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         export_circuit = transpile(output_circuit, basis_gates=["u3", "cx"],
                                    optimization_level=0)
         validate_two_qubit_legality(export_circuit, graph)
+        if all(item.operation.name not in {"measure", "reset"}
+               for item in source_operations(circuit)):
+            exported_route = RoutingResult(export_circuit, routed.final_mapping,
+                                           routed.trace, routed.swap_count)
+            semantic = validate_small_unitary_equivalence(circuit, exported_route, mapping)
+            if semantic is None:
+                semantic = validate_statevector_probes(circuit, exported_route, mapping)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("x", encoding="utf-8", newline="") as handle:
             qasm2.dump(export_circuit, handle)
