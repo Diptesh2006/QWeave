@@ -38,3 +38,22 @@ def test_compile_endpoint_rejects_invalid_circuit_preset():
         "method": "weighted",
     })
     assert response.status_code == 400
+
+
+def test_compile_endpoint_marks_unsupported_operation_as_failure():
+    response = client.post("/api/compile", json={
+        "circuit_mode": "custom",
+        "custom_qasm": "qreg q[3]; ccx q[0],q[1],q[2];",
+        "layout_id": "line_4q",
+        "method": "weighted",
+        "auto_decompose": False,
+    })
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is False
+    assert "unsupported source operation" in payload["primary_result"]["error"]
+
+
+def test_compile_endpoint_rejects_unknown_method():
+    response = client.post("/api/compile", json={"method": "mystery"})
+    assert response.status_code == 422
