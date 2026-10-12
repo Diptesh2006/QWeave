@@ -46,18 +46,18 @@ For every assumption in `docs/ASSUMPTION_REGISTER.md`, the following table confi
 | A9 | Explicit Seeds | Yes (GNN/PPO init) | Yes | Experimental Design |
 | A10 | Exact check $\le 6$, probes $\le 12$ | Yes (`validate_small_unitary_equivalence`) | Yes | Theorem 2 |
 
-## Section 3: Open Issues and Suspected Bugs
+## Section 3: Re-audit of Previously Reported Issues
 
-The following behavioral oddities and bugs were uncovered during Stage 3 property testing. Module owners are assigned below to investigate.
+The following items were recorded during earlier development. They are not current confirmed implementation bugs under the present API; they were rechecked against current validators and tests on 2026-10-12.
 
-1. **Bug: `validate_small_unitary_equivalence` returns `None` for idle sites.**
-   - **Detail**: When evaluated on a circuit mapping with idle physical sites (physical width > logical width), the exact unitary validator bails out and silently returns `None`, forcing tests to explicitly fall back to `validate_statevector_probes`.
-   - **Owner**: Atharva (Integration / Qiskit Interfaces)
+1. **Exact unitary validator returns `None` for idle physical sites.**
+   - **Current status**: Intentional scope boundary. `validate_small_unitary_equivalence` is defined for equal-width permutations. Idle-site cases use `validate_statevector_probes`, which embeds the logical state into the physical layout. `tests/test_qiskit_adapter_and_route.py::test_statevector_probes_cover_wider_circuit_and_idle_physical_sites` exercises this path.
+   - **Remaining limit**: Statevector probes are finite and probabilistic; `None` means the exact oracle is inapplicable, not that equivalence passed.
 
-2. **Bug: `validate_small_unitary_equivalence` raises bare `ValueError` instead of returning `False`.**
-   - **Detail**: Passing a corrupted layout to the validator causes it to raise `ValueError("routed unitary disagrees with initial/final layouts")` instead of gracefully returning a `False` boolean to the caller.
-   - **Owner**: Atharva (Integration / Qiskit Interfaces)
+2. **Exact unitary validator raises `ValueError` for a mismatched unitary.**
+   - **Current status**: Intentional fail-closed validation behavior. A semantic mismatch is rejected as an exception rather than returned as a successful boolean. `tests/test_qiskit_adapter_and_route.py::test_sabre_small_layout_oracle_detects_a_changed_output` checks that a modified output is rejected.
 
-3. **Bug: Terminal-step transient `fallback_used` indicator is misleading.**
-   - **Detail**: `QubitRoutingEnv.step()` drops the `fallback_used = True` flag on the final episode step if the step naturally concludes without hitting the non-progress limit. Consumers must read `info["fallback_count"] > 0` to accurately detect if fallback occurred during the episode.
-   - **Owner**: Haridasu (RL Environment / GNN)
+3. **`fallback_used` is false on a step that did not invoke fallback, even if fallback occurred earlier.**
+   - **Current status**: The field is step-local. The cumulative episode count is `info["fallback_count"]`; the benchmark records this cumulative count. This is an API naming/documentation concern rather than a routing correctness failure. Consumers computing episode totals must use the count.
+
+No other open runtime bug is asserted by this review. The scheduler coverage row in `docs/PROOF_TEST_MATRIX.md` was stale and is now tied to `tests/test_scheduler_verification.py`. The current audit and roadmap record remaining product/research gaps separately from correctness defects.
