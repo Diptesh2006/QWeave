@@ -4,6 +4,7 @@ import pytest
 from qiskit import QuantumCircuit, qasm2
 
 from qweave.cli import main
+from qweave.learning import GraphActorCritic, PPOConfig, save_checkpoint
 
 
 def _write_qasm(path):
@@ -56,4 +57,26 @@ def test_cli_custom_topology_requires_enough_sites(tmp_path):
 
     assert error.value.code == 2
     assert not output.exists()
+
+
+def test_cli_learned_router_uses_checkpoint_and_reports_fallback(tmp_path, capsys):
+    source = tmp_path / "source.qasm"
+    checkpoint = tmp_path / "policy.pt"
+    output = tmp_path / "learned.qasm"
+    _write_qasm(source)
+    config = PPOConfig(hidden=16, message_passing_steps=1)
+    model = GraphActorCritic(hidden=config.hidden,
+                             message_passing_steps=config.message_passing_steps)
+    save_checkpoint(str(checkpoint), model, config, {"test": True})
+
+    status = main(["compile", "--circuit", str(source), "--topology", "line",
+                   "--router", "learned", "--checkpoint", str(checkpoint),
+                   "--seed", "19", "--output", str(output)])
+
+    summary = json.loads(capsys.readouterr().out)
+    assert status == 0
+    assert summary["router"] == "learned"
+    assert summary["route_replay_validation"] is True
+    assert summary["semantic_validation"] is True
+    assert qasm2.load(str(output)).num_qubits == 3
 

@@ -6,11 +6,20 @@ from pathlib import Path
 import sys
 
 import networkx as nx
-from qiskit import qasm2
+from qiskit import qasm2, transpile
 
 from qweave.core.compiler import compile_deterministic
 from qweave.core.coupling import coupling_graph_from_edges
-from qweave.core.validation import validate_two_qubit_legality
+from qweave.core.validation import (
+    validate_routing_result,
+    validate_small_unitary_equivalence,
+    validate_statevector_probes,
+    validate_two_qubit_legality,
+)
+from qweave.mapper.initial_mapper import initial_mapping
+from qweave.mapper.local_search import refine_mapping
+from qweave.baselines.basic import identity_mapping
+from qweave.scheduling import schedule_routing_result
 
 
 def _topology(name: str, logical_qubits: int, physical_qubits: int | None,
@@ -55,26 +64,72 @@ def _compile(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         circuit = qasm2.load(str(args.circuit))
         graph = _topology(args.topology, circuit.num_qubits, args.physical_qubits,
                           args.rows, args.columns, args.edges_file)
-        result = compile_deterministic(circuit, graph, method=args.method,
-                                       schedule=args.schedule)
-        validate_two_qubit_legality(result.circuit, graph)
+        if args.router == "deterministic":
+            result = compile_deterministic(circuit, graph, method=args.method,
+                                           schedule=args.schedule)
+            routed = result.routed
+            mapping = result.initial_mapping
+            output_circuit = result.circuit
+            semantic = result.semantic_validation
+            stage_metrics = result.stage_metrics
+        else:
+            if args.checkpoint is None:
+                raise ValueError("learned router requires --checkpoint")
+            if args.seed < 0:
+                raise ValueError("seed must be non-negative")
+            if args.method == "basic":
+                mapping = identity_mapping(circuit, graph)
+            else:
+                seed_mapping = initial_mapping(circuit, graph)
+                mapping = refine_mapping(circuit, seed_mapping.mapping, graph).mapping
+            from qweave.learning import QubitRoutingEnv, edge_index_from_env, load_checkpoint
+
+            model, _, _ = load_checkpoint(str(args.checkpoint))
+            env = QubitRoutingEnv(circuit, graph, mapping)
+            observation, _ = env.reset(seed=args.seed)
+            terminated = truncated = False
+            while not (terminated or truncated):
+                action, _, _ = model.act(observation, edge_index_from_env(env), deterministic=True)
+                observation, _, terminated, truncated, _ = env.step(action)
+            routed = env.routing_result()
+            validate_routing_result(circuit, routed, mapping, graph)
+            validate_two_qubit_legality(routed.circuit, graph)
+            operations = env.operations
+            semantic = None
+            if all(item.operation.name not in {"measure", "reset"} for item in operations):
+                semantic = validate_small_unitary_equivalence(circuit, routed, mapping)
+                if semantic is None:
+                    semantic = validate_statevector_probes(circuit, routed, mapping)
+            scheduled = (schedule_routing_result(circuit, routed, mapping, graph)
+                         if args.schedule else None)
+            output_circuit = scheduled.circuit if scheduled else routed.circuit
+            stage_metrics = {"symbolic_route_replay": True,
+                             "semantic_validation": semantic,
+                             "scheduled_depth": scheduled.depth_after if scheduled else None}
+        # OpenQASM 2.0's default parser does not include every Qiskit gate such
+        # as SWAP. Emit a portable standard basis while preserving edge locality.
+        export_circuit = transpile(output_circuit, basis_gates=["u3", "cx"],
+                                   optimization_level=0)
+        validate_two_qubit_legality(export_circuit, graph)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("x", encoding="utf-8", newline="") as handle:
-            qasm2.dump(result.circuit, handle)
+            qasm2.dump(export_circuit, handle)
     except FileExistsError:
         parser.error(f"refusing to overwrite existing output: {args.output}")
-    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+    except (OSError, ImportError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
     summary = {
         "output": str(args.output),
-        "method": result.method,
-        "logical_to_physical": result.initial_mapping,
-        "final_mapping": result.routed.final_mapping,
-        "inserted_swaps": result.routed.swap_count,
-        "depth": result.circuit.depth(),
-        "operations": len(result.circuit.data),
-        "semantic_validation": result.semantic_validation,
-        "route_replay_validation": result.stage_metrics["symbolic_route_replay"],
+        "method": args.method,
+        "router": args.router,
+        "logical_to_physical": mapping,
+        "final_mapping": routed.final_mapping,
+        "inserted_swaps": routed.swap_count,
+        "depth": export_circuit.depth(),
+        "operations": len(export_circuit.data),
+        "semantic_validation": semantic,
+        "route_replay_validation": stage_metrics["symbolic_route_replay"],
+        "fallback_count": getattr(locals().get("env"), "fallback_count", 0),
     }
     print(json.dumps(summary, indent=2))
     return 0
@@ -93,6 +148,9 @@ def main(argv: list[str] | None = None) -> int:
     compile_parser.add_argument("--columns", type=int)
     compile_parser.add_argument("--edges-file", type=Path)
     compile_parser.add_argument("--method", choices=("basic", "weighted"), default="weighted")
+    compile_parser.add_argument("--router", choices=("deterministic", "learned"), default="deterministic")
+    compile_parser.add_argument("--checkpoint", type=Path)
+    compile_parser.add_argument("--seed", type=int, default=7)
     compile_parser.add_argument("--schedule", action="store_true")
     compile_parser.add_argument("--output", type=Path, required=True)
     compile_parser.set_defaults(handler=_compile)
