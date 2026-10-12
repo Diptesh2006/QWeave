@@ -7,9 +7,9 @@ This roadmap tracks the repository audit baseline from 2026-10-12 and the local 
 1. **Implemented locally:** `python -m qweave` / installed `qweave` provide `compile`, `validate`, and help; QASM2 deterministic and checkpoint-based learned routes; exclusive output; topology constructors; optional scheduling; validation summary.
 2. **Implemented locally:** checked-in QASM example and documented CLI commands; tests cover compile, validate, learned route, topology errors, malformed input, and output preservation.
 3. **Implemented locally:** FastAPI/Uvicorn `web` extra and API tests cover health, circuit/layout catalogs, served UI, topology validation, compile failures, and portable exports. Clean extra-install and browser verification remain to be completed.
-4. **In progress:** README commands/extras are reconciled; refresh final test counts only after the full suite passes. Keep historical release/reproduction counts explicitly dated.
+4. **Implemented locally:** README commands/extras are reconciled, and the integrated full suite passes 104 tests. Keep historical release/reproduction counts explicitly dated.
 
-Acceptance: a clean Python 3.11+ install can run `python -m qweave --help`, compile an example, validate its output, run pytest, and optionally launch the web extra. The deterministic compiler remains usable without installing Torch. Still pending clean-install and complete-suite verification.
+Acceptance: a clean Python 3.11+ install can run `python -m qweave --help`, compile an example, validate its output, run pytest, and optionally launch the web extra. The deterministic compiler remains usable without installing Torch. Complete-suite verification passed locally; clean Python 3.11 installation remains pending.
 
 ## Stage 2: Reconcile correctness documentation and interfaces
 
@@ -62,7 +62,7 @@ Acceptance: results are produced from immutable inputs, validated per method, in
 
 | Priority | Work | Reason |
 |---|---|---|
-| P0 | Verify package CLI, examples, web extra/tests | Functionality and focused coverage now exist; clean supported-version installation and full-suite verification remain. |
+| P0 | Verify package CLI, examples, web extra/tests | Functionality and 104-test coverage pass locally; clean supported-version installation remains. |
 | P0 | Correct stale correctness/status documentation | Existing proof matrix and open-issue review do not match the expanded tests/current interfaces. |
 | P1 | DAG/frontier critical-path environment specification | The central hypothesis is not represented explicitly by the current sequential-operation environment. |
 | P1 | Resumable PPO state | Existing model checkpoint save/load supports inference, not continuing an interrupted optimizer run. |
