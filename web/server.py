@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from qiskit import QuantumCircuit, qasm2
+from qiskit import QuantumCircuit, qasm2, transpile
 
 from qweave.baselines.basic import run_basic_baseline
 from qweave.baselines.sabre import run_sabre_baseline
@@ -405,10 +405,10 @@ def format_compile_result(method_name: str, circuit: QuantumCircuit, coupling_gr
             if k in edge_usage:
                 edge_usage[k] += 1
 
-    try:
-        routed_qasm = qasm2.dumps(routed_qc)
-    except Exception:
-        routed_qasm = "// QASM generation failed"
+    qasm_circuit = transpile(routed_qc, basis_gates=["u3", "cx"],
+                             optimization_level=0)
+    validate_two_qubit_legality(qasm_circuit, coupling_graph)
+    routed_qasm = qasm2.dumps(qasm_circuit)
 
     try:
         routed_diagram = str(routed_qc.draw(output="text"))
@@ -550,6 +550,10 @@ def compile_circuit(req: CompileRequest):
         elif m == "sabre":
             try:
                 sabre_out = run_sabre_baseline(circuit, coupling_graph, seed=7)
+                sabre_qasm_circuit = transpile(
+                    sabre_out["circuit"], basis_gates=["u3", "cx"],
+                    optimization_level=0)
+                validate_two_qubit_legality(sabre_qasm_circuit, coupling_graph)
                 elapsed = time.perf_counter() - started
                 results["sabre"] = {
                     "method": "sabre",
@@ -567,7 +571,7 @@ def compile_circuit(req: CompileRequest):
                     "initial_mapping": {},
                     "final_mapping": {},
                     "trace": [],
-                    "routed_qasm": qasm2.dumps(sabre_out["circuit"]),
+                    "routed_qasm": qasm2.dumps(sabre_qasm_circuit),
                     "routed_diagram": str(sabre_out["circuit"].draw(output="text")),
                     "circuit_layers": circuit_to_json_layers(sabre_out["circuit"])[:150],
                     "semantic_validation": sabre_out.get("semantic_validation", True),
