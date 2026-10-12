@@ -181,7 +181,17 @@ def create_hardware_graph(layout_id: str, custom_edges: Optional[list[list[int]]
     if layout_id == "custom":
         if not custom_edges:
             raise ValueError("Custom layout requires at least one edge.")
-        num_nodes = custom_nodes or (max(max(e) for e in custom_edges) + 1)
+        if custom_nodes is not None and (type(custom_nodes) is not int or custom_nodes < 1):
+            raise ValueError("Custom layout node count must be a positive integer.")
+        if any(not isinstance(edge, list) or len(edge) != 2
+               or any(type(node) is not int or node < 0 for node in edge)
+               for edge in custom_edges):
+            raise ValueError("Custom edges must be pairs of non-negative integer labels.")
+        num_nodes = custom_nodes if custom_nodes is not None else max(max(edge) for edge in custom_edges) + 1
+        if any(max(edge) >= num_nodes for edge in custom_edges):
+            raise ValueError("Custom edge label exceeds the declared node count.")
+        if any(left == right for left, right in custom_edges):
+            raise ValueError("Custom layout edges cannot be self-loops.")
         graph = nx.Graph()
         graph.add_nodes_from(range(num_nodes))
         graph.add_edges_from([tuple(e) for e in custom_edges])
