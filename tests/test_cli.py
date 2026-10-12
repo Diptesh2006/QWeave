@@ -100,3 +100,30 @@ def test_cli_rejects_invalid_topology_dimensions_and_labels(tmp_path):
     with pytest.raises(ValueError, match="labels"):
         _topology("custom", 2, None, None, None, edge_file)
 
+
+def test_cli_validate_accepts_legal_compiled_circuit(tmp_path, capsys):
+    compiled = tmp_path / "legal.qasm"
+    circuit = QuantumCircuit(3)
+    circuit.cx(0, 1)
+    qasm2.dump(circuit, str(compiled))
+
+    status = main(["validate", "--circuit", str(compiled), "--topology", "line"])
+
+    report = json.loads(capsys.readouterr().out)
+    assert status == 0
+    assert report["status"] == "valid"
+    assert report["hardware_legality"] is True
+    assert report["semantic_equivalence"] is None
+
+
+def test_cli_validate_rejects_illegal_compiled_interaction(tmp_path):
+    compiled = tmp_path / "illegal.qasm"
+    circuit = QuantumCircuit(3)
+    circuit.cx(0, 2)
+    qasm2.dump(circuit, str(compiled))
+
+    with pytest.raises(SystemExit) as error:
+        main(["validate", "--circuit", str(compiled), "--topology", "line"])
+
+    assert error.value.code == 2
+
