@@ -26,7 +26,9 @@ from qweave.scheduling import schedule_routing_result
 
 def _topology(name: str, logical_qubits: int, physical_qubits: int | None,
               rows: int | None, columns: int | None, edges_file: Path | None) -> nx.Graph:
-    count = physical_qubits or logical_qubits
+    count = logical_qubits if physical_qubits is None else physical_qubits
+    if count < 1:
+        raise ValueError("physical qubit count must be positive")
     if count < logical_qubits:
         raise ValueError("physical qubit count must be at least the circuit width")
     if name == "line":
@@ -57,7 +59,10 @@ def _topology(name: str, logical_qubits: int, physical_qubits: int | None,
         count = int(payload["num_qubits"])
         if physical_qubits is not None and physical_qubits != count:
             raise ValueError("--physical-qubits must match num_qubits in the custom edge file")
-        return coupling_graph_from_edges([tuple(edge) for edge in payload["edges"]], count)
+        graph = coupling_graph_from_edges([tuple(edge) for edge in payload["edges"]], count)
+        if set(graph.nodes) != set(range(count)):
+            raise ValueError("custom edges must use labels within 0..num_qubits-1")
+        return graph
     raise ValueError(f"unknown topology: {name}")
 
 
