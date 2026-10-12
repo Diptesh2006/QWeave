@@ -45,7 +45,7 @@ Code existence and verified functionality are reported separately. â€œVerifiedâ€
 
 ## Test and experiment evidence
 
-- The last completed full-suite run before CLI/web additions was **80 passed in 45.06 seconds** on 2026-10-12. Focused post-change CLI and API runs have passed; rerun the full suite before treating the integrated count as verified.
+- The integrated local full-suite run after CLI/web additions passed **104 tests in 21.09 seconds** on 2026-10-12 under Python 3.13.7. CLI and API-focused runs also passed independently. CI constraints were resolved for Python 3.11, but installation in a clean Python 3.11 environment was not performed.
 - The local environment reported Python 3.13.7, Qiskit 2.5.2, NetworkX 3.5, NumPy 2.3.3, pandas 2.3.2, and OR-Tools 9.15.6755 before adding Gymnasium/Hypothesis. This differs from the Python 3.11.15 locked environment described by historical audits.
 - Checked-in benchmark-v2 report states 792 method/seed/case records, 36 held-out cases, applicable semantic checks passing, and post-lowering directed legality passing. It reports median paired GNN-PPO minus weighted depth difference 0 gates with 95% interval [0, 0], and no message-passing benefit over no-message PPO in that suite.
 - These packaged records and historical reproduction audits were inspected, not regenerated here. They are evidence for the declared synthetic benchmark only.
@@ -53,5 +53,5 @@ Code existence and verified functionality are reported separately. â€œVerifiedâ€
 
 ## Overall assessment
 
-The deterministic compiler and learned-routing research modules are present and have broad test coverage. The package CLI, web dependency extra/API tests, and top-level method/results documents have since been added locally. The project still lacks resumable PPO training, SABRE imitation, and a DAG/frontier critical-path routing formulation. The strongest reported study does not show a learned routing or GNN depth advantage over deterministic references. Full-suite and clean Python 3.11 installation verification remain outstanding for these additions.
+The deterministic compiler and learned-routing research modules are present and have broad test coverage. The package CLI, web dependency extra/API tests, and top-level method/results documents have since been added locally; the integrated suite passes 104 tests. The project still lacks resumable PPO training, SABRE imitation, and a DAG/frontier critical-path routing formulation. The strongest reported study does not show a learned routing or GNN depth advantage over deterministic references. A clean Python 3.11 installation remains unverified.
 
