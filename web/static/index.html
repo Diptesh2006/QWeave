@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QWeave | Quantum Circuit Routing & Compilation Studio</title>
+  <meta name="description" content="Interactive quantum circuit routing, hardware-aware qubit allocation, and depth minimization using QWeave and Qiskit.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <!-- Background Glow Effects -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="logo-area">
+        <div class="quantum-atom-icon">
+          <span class="orbit ring-1"></span>
+          <span class="orbit ring-2"></span>
+          <span class="nucleus"></span>
+        </div>
+        <div>
+          <h1 class="logo-title">QWeave <span class="logo-badge">STUDIO</span></h1>
+          <p class="logo-subtitle">Hardware-Aware Quantum Circuit Routing & Optimization</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <div class="status-pill connected" id="engineStatusBadge">
+          <span class="dot"></span> Engine: QWeave v0.2.0 / Qiskit 2.5
+        </div>
+        <div class="status-pill convention">
+          <code>mapping[q] = p</code>
+        </div>
+        <button id="quickDemoBtn" class="btn btn-secondary btn-sm" title="Load sample circuit & architecture">
+          ⚡ Quick Demo
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Studio Layout -->
+  <main class="studio-layout">
+    <!-- Left Configuration Panel -->
+    <aside class="panel config-panel">
+      <!-- Circuit Source Selector Section -->
+      <section class="card config-card" id="circuitSelectionSection">
+        <div class="card-header">
+          <div class="step-num">1</div>
+          <div>
+            <h2 class="card-title">Select or Upload Circuit</h2>
+            <p class="card-desc">Pick a benchmark algorithm, upload QASM, or write code</p>
+          </div>
+        </div>
+
+        <div class="tabs-nav" id="circuitModeTabs">
+          <button class="tab-btn active" id="tabPresetCircuit" data-mode="preset">Library Presets</button>
+          <button class="tab-btn" id="tabUploadCircuit" data-mode="upload">Upload .QASM</button>
+          <button class="tab-btn" id="tabCustomCircuit" data-mode="editor">QASM Editor</button>
+        </div>
+
+        <!-- Mode 1: Presets -->
+        <div class="tab-pane active" id="presetPane">
+          <div class="form-group">
+            <label for="circuitPresetSelect" class="form-label">Algorithm Preset</label>
+            <select id="circuitPresetSelect" class="form-select"></select>
+          </div>
+          <div class="circuit-preview-card" id="presetDetailsCard">
+            <div class="preset-meta-tags">
+              <span class="tag" id="presetCategoryTag">Algorithmic</span>
+              <span class="tag info" id="presetQubitsTag">4 Qubits</span>
+              <span class="tag neutral" id="presetDepthTag">Depth: --</span>
+              <span class="tag neutral" id="presetGatesTag">Gates: --</span>
+            </div>
+            <p class="preset-description" id="presetDescriptionText">Loading preset information...</p>
+          </div>
+        </div>
+
+        <!-- Mode 2: Upload -->
+        <div class="tab-pane" id="uploadPane">
+          <div class="dropzone" id="qasmDropzone">
+            <div class="dropzone-icon">📥</div>
+            <p class="dropzone-text"><strong>Drag & drop OpenQASM file</strong></p>
+            <p class="dropzone-sub">or click to browse (.qasm, .txt)</p>
+            <input type="file" id="qasmFileInput" accept=".qasm,.txt" class="file-hidden">
+          </div>
+          <div class="upload-file-status hidden" id="uploadStatusBox">
+            <span class="file-name" id="uploadedFileName">my_circuit.qasm</span>
+            <span class="file-size" id="uploadedFileSize">-- KB</span>
+            <button class="btn-icon" id="clearFileBtn" title="Remove file">✕</button>
+          </div>
+        </div>
+
+        <!-- Mode 3: QASM Editor -->
+        <div class="tab-pane" id="editorPane">
+          <div class="editor-header">
+            <span class="editor-lang">OPENQASM 2.0</span>
+            <button class="btn btn-ghost btn-xs" id="insertSampleBtn">Insert Template</button>
+          </div>
+          <textarea id="qasmCodeEditor" class="code-editor" spellcheck="false" placeholder="// Enter OpenQASM code here..."></textarea>
+        </div>
+      </section>
+
+      <!-- Hardware Architecture Section -->
+      <section class="card config-card" id="hardwareSelectionSection">
+        <div class="card-header">
+          <div class="step-num">2</div>
+          <div>
+            <h2 class="card-title">Choose Hardware Topology</h2>
+            <p class="card-desc">Target physical quantum processor architecture</p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="hardwarePresetSelect" class="form-label">Hardware Architecture</label>
+          <select id="hardwarePresetSelect" class="form-select"></select>
+        </div>
+
+        <!-- Custom Hardware Toggle Pane -->
+        <div class="custom-layout-pane hidden" id="customLayoutPane">
+          <div class="form-row">
+            <div class="form-group col-half">
+              <label for="customNodesInput" class="form-label">Physical Qubits</label>
+              <input type="number" id="customNodesInput" class="form-input" min="2" max="32" value="5">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="customEdgesInput" class="form-label">Coupler Edges (e.g. [[0,1],[1,2],[2,3]])</label>
+            <textarea id="customEdgesInput" class="code-editor small" spellcheck="false">[[0, 1], [1, 2], [2, 3], [3, 4]]</textarea>
+          </div>
+        </div>
+
+        <!-- Interactive Hardware Topology Visualizer -->
+        <div class="hardware-graph-container">
+          <div class="hardware-graph-header">
+            <span class="chip-badge" id="hardwareTitleBadge">Topology Layout</span>
+            <span class="chip-nodes" id="hardwareNodesBadge">4 Physical Qubits</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="hardwareCanvas" width="380" height="210"></canvas>
+            <div class="canvas-legend">
+              <span class="legend-item"><span class="dot-swatch node-idle"></span> Physical Qubit</span>
+              <span class="legend-item"><span class="dot-swatch node-mapped"></span> Mapped Qubit</span>
+              <span class="legend-item"><span class="dot-swatch edge-coupler"></span> Coupler</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Compiler Options & Action Bar -->
+      <section class="card config-card" id="compilerOptionsSection">
+        <div class="card-header">
+          <div class="step-num">3</div>
+          <div>
+            <h2 class="card-title">Routing Engine & Options</h2>
+            <p class="card-desc">Select allocation policy & compiler passes</p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Allocation & Routing Algorithm</label>
+          <div class="method-grid" id="methodSelectorGrid">
+            <label class="method-card active">
+              <input type="radio" name="compileMethod" value="weighted" checked>
+              <div class="method-info">
+                <span class="method-name">⚡ QWeave Weighted</span>
+                <span class="method-desc">Interaction degree seed + Local Search + Fallback Router</span>
+              </div>
+            </label>
+            <label class="method-card">
+              <input type="radio" name="compileMethod" value="basic">
+              <div class="method-info">
+                <span class="method-name">🎯 QWeave Basic</span>
+                <span class="method-desc">Identity initial mapping baseline</span>
+              </div>
+            </label>
+            <label class="method-card">
+              <input type="radio" name="compileMethod" value="sabre">
+              <div class="method-info">
+                <span class="method-name">🔬 Qiskit SABRE</span>
+                <span class="method-desc">Heuristic forward/decay baseline</span>
+              </div>
+            </label>
+            <label class="method-card highlight">
+              <input type="radio" name="compileMethod" value="all">
+              <div class="method-info">
+                <span class="method-name">📊 Compare All Three</span>
+                <span class="method-desc">Side-by-side performance evaluation</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="toggles-row">
+          <label class="switch-control" title="Schedule gates after routing to minimize circuit depth">
+            <input type="checkbox" id="schedulingToggle">
+            <span class="slider"></span>
+            <span class="switch-label">Depth-Aware List Scheduler</span>
+          </label>
+          <label class="switch-control" title="Decompose multi-qubit gates into native 1Q/2Q operations">
+            <input type="checkbox" id="decomposeToggle" checked>
+            <span class="slider"></span>
+            <span class="switch-label">Auto-Decompose Gates</span>
+          </label>
+        </div>
+
+        <button id="compileBtn" class="btn btn-primary btn-compile">
+          <span class="btn-spinner hidden" id="compileSpinner"></span>
+          <span class="btn-text" id="compileBtnText">⚡ Compile Circuit</span>
+        </button>
+      </section>
+    </aside>
+
+    <!-- Right Results Panel -->
+    <section class="panel results-panel" id="resultsPanel">
+      <!-- Empty Initial State -->
+      <div class="empty-state" id="emptyResultsState">
+        <div class="empty-state-graphic">
+          <div class="pulse-ring"></div>
+          <div class="empty-icon">⚛️</div>
+        </div>
+        <h3 class="empty-title">Ready to Compile</h3>
+        <p class="empty-desc">Pick or upload a quantum circuit on the left, choose your hardware layout, and click <strong>“Compile”</strong> to run QWeave's hardware-aware routing pipeline.</p>
+        <button id="emptyCompileDemoBtn" class="btn btn-secondary">
+          Run Star Graph on 4-Qubit Line
+        </button>
+      </div>
+
+      <!-- Active Compilation Results Container -->
+      <div class="results-content hidden" id="activeResultsContent">
+        <!-- Notification Banner -->
+        <div class="banner banner-success hidden" id="resultStatusBanner">
+          <span class="banner-icon">✓</span>
+          <span class="banner-msg" id="bannerMessage">Circuit compiled and validated successfully!</span>
+          <span class="banner-badge" id="bannerMethodBadge">Weighted</span>
+        </div>
+
+        <!-- Key Metrics Cards Ribbon -->
+        <div class="metrics-grid">
+          <!-- Card 1: SWAPs Added -->
+          <div class="metric-card highlight-swap" id="metricCardSwaps">
+            <div class="metric-header">
+              <span class="metric-title">SWAPs Added</span>
+              <span class="metric-badge" id="swapBadge">Inserted</span>
+            </div>
+            <div class="metric-value-wrap">
+              <span class="metric-value" id="valSwapsAdded">0</span>
+              <span class="metric-unit">gates</span>
+            </div>
+            <p class="metric-footer" id="swapFooter">Routing overhead inserted</p>
+          </div>
+
+          <!-- Card 2: Circuit Depth -->
+          <div class="metric-card highlight-depth" id="metricCardDepth">
+            <div class="metric-header">
+              <span class="metric-title">Circuit Depth</span>
+              <span class="metric-badge" id="depthOverheadBadge">+0%</span>
+            </div>
+            <div class="metric-value-wrap">
+              <span class="metric-sub" id="valSourceDepth">0</span>
+              <span class="metric-arrow">➔</span>
+              <span class="metric-value" id="valRoutedDepth">0</span>
+            </div>
+            <p class="metric-footer" id="depthFooter">Δ Depth: 0 layers</p>
+          </div>
+
+          <!-- Card 3: 2-Qubit Operations -->
+          <div class="metric-card" id="metricCardOps">
+            <div class="metric-header">
+              <span class="metric-title">Two-Qubit Ops</span>
+              <span class="metric-badge neutral" id="opsBadge">Hardware CX/SWAP</span>
+            </div>
+            <div class="metric-value-wrap">
+              <span class="metric-value" id="valTwoQubitOps">0</span>
+              <span class="metric-unit">gates</span>
+            </div>
+            <p class="metric-footer" id="opsFooter">Total Gates: <span id="valTotalGates">0</span></p>
+          </div>
+
+          <!-- Card 4: Validation & Latency -->
+          <div class="metric-card highlight-verify" id="metricCardVerify">
+            <div class="metric-header">
+              <span class="metric-title">Validation Status</span>
+              <span class="metric-badge success" id="verifyBadge">✓ Passed</span>
+            </div>
+            <div class="metric-status-list">
+              <div class="status-row">
+                <span class="status-icon">✓</span>
+                <span>Coupler Legality: Valid</span>
+              </div>
+              <div class="status-row">
+                <span class="status-icon">✓</span>
+                <span id="semanticStatusText">Unitary Equivalent</span>
+              </div>
+            </div>
+            <p class="metric-footer" id="runtimeFooter">Runtime: <span id="valRuntime">0.0</span> ms</p>
+          </div>
+        </div>
+
+        <!-- Comparison Cards (Shown when 'Compare All' is picked) -->
+        <div class="comparison-section hidden" id="comparisonSection">
+          <div class="section-title-row">
+            <h3 class="section-title">Algorithmic Performance Comparison</h3>
+            <span class="section-badge">Side-by-Side</span>
+          </div>
+          <div class="comparison-cards-grid" id="comparisonCardsGrid"></div>
+        </div>
+
+        <!-- Tabbed Detailed Views -->
+        <div class="results-tabs-wrapper">
+          <div class="tabs-nav result-tabs" id="resultsTabsNav">
+            <button class="tab-btn active" data-target="tabDiagram">Routed Circuit</button>
+            <button class="tab-btn" data-target="tabReplay">Step-by-Step Replay</button>
+            <button class="tab-btn" data-target="tabMapping">Qubit Allocation</button>
+            <button class="tab-btn" data-target="tabQasm">OpenQASM Code</button>
+          </div>
+
+          <!-- Result View 1: Diagram & Visual Circuit Board -->
+          <div class="result-tab-content active" id="tabDiagram">
+            <div class="view-toolbar">
+              <div class="toolbar-left">
+                <span class="toolbar-title">Compiled Physical Circuit Representation</span>
+                <span class="toolbar-sub" id="circuitDimensionsSub">4 physical wires • 0 SWAPs</span>
+              </div>
+              <div class="toolbar-actions">
+                <button class="btn btn-ghost btn-xs" id="copyDiagramBtn" title="Copy ASCII diagram">📋 Copy Diagram</button>
+              </div>
+            </div>
+
+            <!-- Monospace Circuit Diagram Box -->
+            <div class="circuit-diagram-container">
+              <pre class="circuit-ascii-view" id="circuitAsciiOutput">// Circuit diagram will render here...</pre>
+            </div>
+          </div>
+
+          <!-- Result View 2: Step-by-Step Route Replay -->
+          <div class="result-tab-content" id="tabReplay">
+            <div class="replay-player-card">
+              <div class="replay-controls-bar">
+                <button class="btn btn-secondary btn-sm" id="replayPrevBtn" title="Previous Gate">⏮ Step</button>
+                <button class="btn btn-primary btn-sm" id="replayPlayBtn" title="Play animation">▶ Play</button>
+                <button class="btn btn-secondary btn-sm" id="replayNextBtn" title="Next Gate">Step ⏭</button>
+                <div class="replay-scrubber-wrap">
+                  <input type="range" id="replayScrubber" min="0" max="10" value="0" class="replay-slider">
+                  <span class="replay-step-counter" id="replayStepCounter">Step 0 / 0</span>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="replayResetBtn">Reset</button>
+              </div>
+
+              <!-- Replay Step Info Box -->
+              <div class="replay-step-info" id="replayStepInfo">
+                <div class="step-badge-row">
+                  <span class="step-badge gate" id="stepKindBadge">Operation</span>
+                  <span class="step-details" id="stepDetailsText">Step through routing trace to see physical qubit swaps</span>
+                </div>
+              </div>
+
+              <!-- Replay Layout Overlay -->
+              <div class="replay-canvas-wrap">
+                <canvas id="replayCanvas" width="600" height="240"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result View 3: Mapping Allocation -->
+          <div class="result-tab-content" id="tabMapping">
+            <div class="mapping-container">
+              <div class="mapping-column">
+                <h4 class="column-subtitle">Initial Placement (t = 0)</h4>
+                <p class="column-desc">Hardware assignment determined by mapper</p>
+                <div class="mapping-chips-list" id="initialMappingChips"></div>
+              </div>
+              <div class="mapping-arrow-col">
+                <div class="arrow-indicator">➔</div>
+                <span class="arrow-caption">SWAP Evolution</span>
+              </div>
+              <div class="mapping-column">
+                <h4 class="column-subtitle">Final Placement (t = end)</h4>
+                <p class="column-desc">Qubit physical locations after all inserted SWAPs</p>
+                <div class="mapping-chips-list" id="finalMappingChips"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result View 4: OpenQASM Code -->
+          <div class="result-tab-content" id="tabQasm">
+            <div class="view-toolbar">
+              <div class="toolbar-left">
+                <span class="toolbar-title">Exported OpenQASM 2.0 Physical Circuit</span>
+              </div>
+              <div class="toolbar-actions">
+                <button class="btn btn-ghost btn-xs" id="copyQasmBtn">📋 Copy QASM</button>
+                <button class="btn btn-secondary btn-xs" id="downloadQasmBtn">💾 Download .qasm</button>
+              </div>
+            </div>
+            <pre class="code-output" id="routedQasmOutput">// QASM will be generated here...</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
