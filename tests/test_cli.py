@@ -3,7 +3,7 @@ import json
 import pytest
 from qiskit import QuantumCircuit, qasm2
 
-from qweave.cli import main
+from qweave.cli import _topology, main
 from qweave.learning import GraphActorCritic, PPOConfig, save_checkpoint
 
 
@@ -79,4 +79,24 @@ def test_cli_learned_router_uses_checkpoint_and_reports_fallback(tmp_path, capsy
     assert summary["route_replay_validation"] is True
     assert summary["semantic_validation"] is True
     assert qasm2.load(str(output)).num_qubits == 3
+
+
+@pytest.mark.parametrize(
+    ("name", "physical", "rows", "columns", "edge_count"),
+    [("line", 4, None, None, 3), ("ring", 4, None, None, 4),
+     ("grid", 4, 2, 2, 4)],
+)
+def test_cli_topology_constructors(name, physical, rows, columns, edge_count):
+    graph = _topology(name, 3, physical, rows, columns, None)
+    assert set(graph.nodes) == set(range(physical))
+    assert graph.number_of_edges() == edge_count
+
+
+def test_cli_rejects_invalid_topology_dimensions_and_labels(tmp_path):
+    edge_file = tmp_path / "edges.json"
+    edge_file.write_text(json.dumps({"num_qubits": 3, "edges": [[0, 3]]}), encoding="utf-8")
+    with pytest.raises(ValueError, match=r"rows \* columns"):
+        _topology("grid", 4, 4, 1, 3, None)
+    with pytest.raises(ValueError, match="labels"):
+        _topology("custom", 2, None, None, None, edge_file)
 
