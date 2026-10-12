@@ -99,7 +99,7 @@ The CP-SAT implementation is an exact initial-mapping oracle for small instances
 
 ## Testing and reproducibility
 
-The 69-test suite covers graph weights and decay, deterministic/injective mapping, strict local-search descent, shortest-path tie-breaking, global-phase and classical-target preservation, resets and terminal measurements, explicit dynamic-control rejection, route replay and layout consistency, exact and probe-based semantic checks, idle physical sites, directed-gate synthesis, scheduling order/timing, the guarded Gymnasium contract, action masking, GNN--PPO checkpointing/training, benchmark split integrity, SABRE execution, paired statistics, and a known tiny mapping-oracle optimum. Randomness is explicit and seeded. Results include configuration, seed, timestamp, metrics, and validation status.
+The committed v0.2.0 verification record reports 69 tests on its documented clean-clone environment. A later local run on the current checkout passed 80 tests under Python 3.13.7, Qiskit 2.5.2, NetworkX 3.5, NumPy 2.3.3, pandas 2.3.2, and OR-Tools 9.15.6755 after installing the test and learning dependencies. The suite covers graph weights and decay, mapping and strict descent, route replay and layout consistency, semantic checks, directed lowering, scheduling verification, guarded Gymnasium behavior, action masking, PPO, benchmark manifests, SABRE, paired statistics, and the mapping oracle. See `RESULTS.md` for local run context and `PROJECT_AUDIT.md` for scope and gaps.
 
 `scripts/run_scheduler_check.py` writes a new immutable JSON record for three four-qubit smoke circuits on a four-site line. It reports Basic, weighted, and SABRE routed versus scheduled depth on each *fixed* compiled circuit. CP-SAT contributes only its small initial-mapping objective/status. This check is not a frozen benchmark or evidence of general improvement.
 
@@ -140,6 +140,10 @@ notes](RELEASE_NOTES_v0.2.0.md) for the packaged scope and claim boundary.
 ## Current implementation status
 
 Implemented: weighted interaction graph, initial mapping, local search, deterministic fallback routing, Basic and SABRE baselines, route replay, exact and probe-based semantic checks, reset and terminal-measurement preservation, directed-coupler lowering, depth-aware list scheduling, declared duration/error proxies, metrics, an interactive web compilation studio (`web/`), a CP-SAT mapping oracle, a guarded Gymnasium routing environment, masked graph actor-critic, PPO training, ablation controls, a frozen benchmark-v2 harness, checkpoints, and paired bootstrap analysis. Dynamic classical control and a full exact-routing formulation remain outside the current scope; the CP-SAT component remains an initial-mapping oracle only.
+
+The current learned environment advances through a sequential source-operation pointer and bounded lookahead. It does not implement a ready-operation dependency-DAG policy or demonstrate a critical-path-aware learning advantage. No package-level `python -m qweave compile` CLI or SABRE imitation trajectory pipeline is currently provided. The README's web launch also requires FastAPI/Uvicorn, which are not yet declared as a project extra. See [the project audit](PROJECT_AUDIT.md) and [implementation roadmap](IMPLEMENTATION_ROADMAP.md) for the verified status and ordered work.
+
+The objectives, implemented algorithms, and experimental limitations are summarized in [RESEARCH_METHOD.md](RESEARCH_METHOD.md) and [RESULTS.md](RESULTS.md).
 
 Team roles are documented in `AGENTS.md`: Atharva Sheersh Pandey owns integration and Qiskit adapters; Shrivardhini N owns formal model and scheduler; Diptesh Das owns deterministic optimisation, routing, baselines, and oracle; Haridasu Sreedhar owns RL/GNN/PPO work.
 
