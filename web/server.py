@@ -5,7 +5,7 @@ import json
 import math
 import random
 import time
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import networkx as nx
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -293,7 +293,8 @@ class CompileRequest(BaseModel):
     layout_id: str = "line_4q"
     custom_edges: Optional[list[list[int]]] = None
     custom_nodes: Optional[int] = None
-    method: str = Field("weighted", description="'weighted', 'basic', 'sabre', or 'all'")
+    method: Literal["weighted", "basic", "sabre", "all"] = Field(
+        "weighted", description="'weighted', 'basic', 'sabre', or 'all'")
     schedule: bool = Field(False, description="Apply depth-aware list scheduling")
     auto_decompose: bool = Field(True, description="Decompose high-level multi-qubit gates")
 
@@ -567,9 +568,10 @@ def compile_circuit(req: CompileRequest):
 
     primary_key = req.method if req.method != "all" else "weighted"
     primary_result = results.get(primary_key, next(iter(results.values())))
+    all_succeeded = all("error" not in result for result in results.values())
 
     return {
-        "success": True,
+        "success": all_succeeded,
         "source_circuit": source_stats,
         "hardware_layout": layout_meta,
         "selected_method": req.method,
