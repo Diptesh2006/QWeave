@@ -1,15 +1,15 @@
 # QWeave Implementation Roadmap
 
-This roadmap follows the repository state recorded in `PROJECT_AUDIT.md` on 2026-10-12. Work should be split into small commits, preserve existing interfaces, and retain independent owners' boundaries. No performance or novelty claim should be added without new reviewed evidence.
+This roadmap tracks the repository audit baseline from 2026-10-12 and the local integration work since then. Work should be split into small commits, preserve existing interfaces, and retain independent owners' boundaries. No performance or novelty claim should be added without new reviewed evidence. Local changes have not been pushed.
 
 ## Stage 1: Make the current package easy to run
 
-1. Add a `python -m qweave` / installed `qweave` command with `compile`, `validate`, and `--help` subcommands. Start with QASM2 input and deterministic Basic/weighted compilation; write output through exclusive creation and report mapping, SWAPs, depth, and validation status.
-2. Add small checked-in example circuits and documented topology names/custom edge input. Exercise CLI success, invalid topology, unsupported operation, existing output path, and validation failure.
-3. Declare web runtime dependencies in a `web` extra (FastAPI and Uvicorn) and add focused API tests for health, presets, topology validation, and compile. Verify the documented launch command from a clean extra install.
-4. Reconcile README test counts and commands with the actual current suite and extras. Keep historical release/reproduction counts explicitly dated.
+1. **Implemented locally:** `python -m qweave` / installed `qweave` provide `compile`, `validate`, and help; QASM2 deterministic and checkpoint-based learned routes; exclusive output; topology constructors; optional scheduling; validation summary.
+2. **Implemented locally:** checked-in QASM example and documented CLI commands; tests cover compile, validate, learned route, topology errors, malformed input, and output preservation.
+3. **Implemented locally:** FastAPI/Uvicorn `web` extra and API tests cover health, circuit/layout catalogs, served UI, topology validation, compile failures, and portable exports. Clean extra-install and browser verification remain to be completed.
+4. **In progress:** README commands/extras are reconciled; refresh final test counts only after the full suite passes. Keep historical release/reproduction counts explicitly dated.
 
-Acceptance: a clean Python 3.11+ install can run `python -m qweave --help`, compile an example, validate its output, run pytest, and optionally launch the web extra. The deterministic compiler remains usable without installing Torch.
+Acceptance: a clean Python 3.11+ install can run `python -m qweave --help`, compile an example, validate its output, run pytest, and optionally launch the web extra. The deterministic compiler remains usable without installing Torch. Still pending clean-install and complete-suite verification.
 
 ## Stage 2: Reconcile correctness documentation and interfaces
 
@@ -62,7 +62,7 @@ Acceptance: results are produced from immutable inputs, validated per method, in
 
 | Priority | Work | Reason |
 |---|---|---|
-| P0 | Package CLI, examples, web extra/tests | The prompt's end-user commands are not currently available, and the documented web launch lacks declared dependencies. |
+| P0 | Verify package CLI, examples, web extra/tests | Functionality and focused coverage now exist; clean supported-version installation and full-suite verification remain. |
 | P0 | Correct stale correctness/status documentation | Existing proof matrix and open-issue review do not match the expanded tests/current interfaces. |
 | P1 | DAG/frontier critical-path environment specification | The central hypothesis is not represented explicitly by the current sequential-operation environment. |
 | P1 | Resumable PPO state | Existing model checkpoint save/load supports inference, not continuing an interrupted optimizer run. |
