@@ -36,6 +36,7 @@ python -m qweave --help
 
 # Deterministic QASM2 compilation
 python -m qweave compile --circuit examples/sample.qasm --topology line --router deterministic --output run_artifacts/sample-compiled.qasm
+python -m qweave validate --circuit run_artifacts/sample-compiled.qasm --topology line
 
 # Learned routing with a compatible checkpoint
 python -m qweave compile --circuit examples/sample.qasm --topology line --router learned --checkpoint checkpoints/best.pt --output run_artifacts/sample-learned.qasm
