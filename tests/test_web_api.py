@@ -16,6 +16,15 @@ def test_health_and_preset_catalog():
     assert any(item["id"] == "cnot_chain_4q" for item in presets.json())
 
 
+def test_layout_catalog_and_studio_are_served():
+    layouts = client.get("/api/layouts/presets")
+    studio = client.get("/")
+    assert layouts.status_code == 200
+    assert {item["id"] for item in layouts.json()} >= {"line_4q", "grid_2x2", "ibm_manila_5q"}
+    assert studio.status_code == 200
+    assert "QWeave" in studio.text
+
+
 def test_compile_endpoint_returns_validated_weighted_route():
     response = client.post("/api/compile", json={
         "circuit_mode": "preset",
