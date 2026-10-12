@@ -149,6 +149,31 @@ def _compile(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return 0
 
 
+def _validate(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    """Check physical two-qubit legality of an already compiled QASM2 file."""
+
+    try:
+        circuit = qasm2.load(str(args.circuit))
+        graph = _topology(args.topology, circuit.num_qubits, args.physical_qubits,
+                          args.rows, args.columns, args.edges_file)
+        validate_two_qubit_legality(circuit, graph)
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        parser.error(str(exc))
+    print(json.dumps({"circuit": str(args.circuit), "status": "valid",
+                      "hardware_legality": True,
+                      "semantic_equivalence": None,
+                      "semantic_note": "QASM2 alone does not include source/layout trace metadata."}, indent=2))
+    return 0
+
+
+def _add_topology_arguments(command: argparse.ArgumentParser) -> None:
+    command.add_argument("--topology", choices=("line", "ring", "grid", "custom"), default="line")
+    command.add_argument("--physical-qubits", type=int)
+    command.add_argument("--rows", type=int)
+    command.add_argument("--columns", type=int)
+    command.add_argument("--edges-file", type=Path)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run QWeave CLI and return a process-style status code."""
 
@@ -156,11 +181,7 @@ def main(argv: list[str] | None = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     compile_parser = subparsers.add_parser("compile", help="compile a QASM2 circuit")
     compile_parser.add_argument("--circuit", type=Path, required=True)
-    compile_parser.add_argument("--topology", choices=("line", "ring", "grid", "custom"), default="line")
-    compile_parser.add_argument("--physical-qubits", type=int)
-    compile_parser.add_argument("--rows", type=int)
-    compile_parser.add_argument("--columns", type=int)
-    compile_parser.add_argument("--edges-file", type=Path)
+    _add_topology_arguments(compile_parser)
     compile_parser.add_argument("--method", choices=("basic", "weighted"), default="weighted")
     compile_parser.add_argument("--router", choices=("deterministic", "learned"), default="deterministic")
     compile_parser.add_argument("--checkpoint", type=Path)
@@ -168,6 +189,10 @@ def main(argv: list[str] | None = None) -> int:
     compile_parser.add_argument("--schedule", action="store_true")
     compile_parser.add_argument("--output", type=Path, required=True)
     compile_parser.set_defaults(handler=_compile)
+    validate_parser = subparsers.add_parser("validate", help="check hardware legality of compiled QASM2")
+    validate_parser.add_argument("--circuit", type=Path, required=True)
+    _add_topology_arguments(validate_parser)
+    validate_parser.set_defaults(handler=_validate)
     args = parser.parse_args(argv)
     return args.handler(args, parser)
 
