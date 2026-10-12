@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from qiskit import qasm2
 
 from web.server import app, create_hardware_graph
 
@@ -28,6 +29,23 @@ def test_compile_endpoint_returns_validated_weighted_route():
     assert payload["primary_result"]["legality_verified"] is True
     assert payload["primary_result"]["semantic_validation"] is True
     assert len(payload["primary_result"]["initial_mapping"]) == 4
+    downloaded = qasm2.loads(payload["primary_result"]["routed_qasm"])
+    assert all(item.operation.name in {"u3", "cx"} for item in downloaded.data)
+
+
+def test_all_baseline_exports_are_parseable_qasm2():
+    response = client.post("/api/compile", json={
+        "circuit_mode": "preset",
+        "preset_circuit_id": "cnot_chain_4q",
+        "layout_id": "line_4q",
+        "method": "all",
+    })
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    for result in payload["all_results"].values():
+        downloaded = qasm2.loads(result["routed_qasm"])
+        assert all(item.operation.name in {"u3", "cx"} for item in downloaded.data)
 
 
 def test_compile_endpoint_rejects_invalid_circuit_preset():
