@@ -5,7 +5,7 @@ import json
 import math
 import random
 import time
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import networkx as nx
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from qiskit import QuantumCircuit, qasm2
+from qiskit import QuantumCircuit, qasm2, transpile
 
 from qweave.baselines.basic import run_basic_baseline
 from qweave.baselines.sabre import run_sabre_baseline
@@ -181,7 +181,17 @@ def create_hardware_graph(layout_id: str, custom_edges: Optional[list[list[int]]
     if layout_id == "custom":
         if not custom_edges:
             raise ValueError("Custom layout requires at least one edge.")
-        num_nodes = custom_nodes or (max(max(e) for e in custom_edges) + 1)
+        if custom_nodes is not None and (type(custom_nodes) is not int or custom_nodes < 1):
+            raise ValueError("Custom layout node count must be a positive integer.")
+        if any(not isinstance(edge, list) or len(edge) != 2
+               or any(type(node) is not int or node < 0 for node in edge)
+               for edge in custom_edges):
+            raise ValueError("Custom edges must be pairs of non-negative integer labels.")
+        num_nodes = custom_nodes if custom_nodes is not None else max(max(edge) for edge in custom_edges) + 1
+        if any(max(edge) >= num_nodes for edge in custom_edges):
+            raise ValueError("Custom edge label exceeds the declared node count.")
+        if any(left == right for left, right in custom_edges):
+            raise ValueError("Custom layout edges cannot be self-loops.")
         graph = nx.Graph()
         graph.add_nodes_from(range(num_nodes))
         graph.add_edges_from([tuple(e) for e in custom_edges])
@@ -293,7 +303,8 @@ class CompileRequest(BaseModel):
     layout_id: str = "line_4q"
     custom_edges: Optional[list[list[int]]] = None
     custom_nodes: Optional[int] = None
-    method: str = Field("weighted", description="'weighted', 'basic', 'sabre', or 'all'")
+    method: Literal["weighted", "basic", "sabre", "all"] = Field(
+        "weighted", description="'weighted', 'basic', 'sabre', or 'all'")
     schedule: bool = Field(False, description="Apply depth-aware list scheduling")
     auto_decompose: bool = Field(True, description="Decompose high-level multi-qubit gates")
 
@@ -394,10 +405,10 @@ def format_compile_result(method_name: str, circuit: QuantumCircuit, coupling_gr
             if k in edge_usage:
                 edge_usage[k] += 1
 
-    try:
-        routed_qasm = qasm2.dumps(routed_qc)
-    except Exception:
-        routed_qasm = "// QASM generation failed"
+    qasm_circuit = transpile(routed_qc, basis_gates=["u3", "cx"],
+                             optimization_level=0)
+    validate_two_qubit_legality(qasm_circuit, coupling_graph)
+    routed_qasm = qasm2.dumps(qasm_circuit)
 
     try:
         routed_diagram = str(routed_qc.draw(output="text"))
@@ -539,6 +550,10 @@ def compile_circuit(req: CompileRequest):
         elif m == "sabre":
             try:
                 sabre_out = run_sabre_baseline(circuit, coupling_graph, seed=7)
+                sabre_qasm_circuit = transpile(
+                    sabre_out["circuit"], basis_gates=["u3", "cx"],
+                    optimization_level=0)
+                validate_two_qubit_legality(sabre_qasm_circuit, coupling_graph)
                 elapsed = time.perf_counter() - started
                 results["sabre"] = {
                     "method": "sabre",
@@ -556,7 +571,7 @@ def compile_circuit(req: CompileRequest):
                     "initial_mapping": {},
                     "final_mapping": {},
                     "trace": [],
-                    "routed_qasm": qasm2.dumps(sabre_out["circuit"]),
+                    "routed_qasm": qasm2.dumps(sabre_qasm_circuit),
                     "routed_diagram": str(sabre_out["circuit"].draw(output="text")),
                     "circuit_layers": circuit_to_json_layers(sabre_out["circuit"])[:150],
                     "semantic_validation": sabre_out.get("semantic_validation", True),
@@ -567,9 +582,10 @@ def compile_circuit(req: CompileRequest):
 
     primary_key = req.method if req.method != "all" else "weighted"
     primary_result = results.get(primary_key, next(iter(results.values())))
+    all_succeeded = all("error" not in result for result in results.values())
 
     return {
-        "success": True,
+        "success": all_succeeded,
         "source_circuit": source_stats,
         "hardware_layout": layout_meta,
         "selected_method": req.method,
