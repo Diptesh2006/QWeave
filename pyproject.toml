@@ -25,7 +25,10 @@ web = ["fastapi>=0.110", "uvicorn>=0.27"]
 qweave = "qweave.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["qweave*"]
+include = ["qweave*", "web*"]
+
+[tool.setuptools.package-data]
+web = ["static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
