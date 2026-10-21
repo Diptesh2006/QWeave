@@ -21,6 +21,11 @@ from qweave.core.compiler import compile_deterministic
 from qweave.core.coupling import coupling_graph_from_edges
 from qweave.core.validation import validate_two_qubit_legality
 from qweave.experiments.benchmark_v2_dataset import BUILDERS
+from qweave.metrics import (
+    compute_measurement_probabilities,
+    compute_state_fidelity,
+    estimate_circuit_fidelity,
+)
 from qweave.metrics.circuit_metrics import circuit_metrics, timed
 
 
@@ -33,6 +38,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_no_cache_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static/") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 
 
 # ---------------------------------------------------------
@@ -420,6 +436,13 @@ def format_compile_result(method_name: str, circuit: QuantumCircuit, coupling_gr
     depth_overhead = routed_depth - source_depth
     rel_overhead = (depth_overhead / source_depth * 100) if source_depth else 0.0
 
+    fidelity_info = estimate_circuit_fidelity(routed_qc)
+    state_fid = compute_state_fidelity(circuit, routed_qc, initial_map, final_map)
+    source_probs = compute_measurement_probabilities(circuit)
+    routed_probs = compute_measurement_probabilities(
+        routed_qc, mapping=final_map, num_logical=circuit.num_qubits
+    )
+
     return {
         "method": method_name,
         "swaps_added": swap_count,
@@ -442,6 +465,13 @@ def format_compile_result(method_name: str, circuit: QuantumCircuit, coupling_gr
         "legality_verified": True,
         "scheduled_depth": metrics.get("scheduled_depth"),
         "scheduled_makespan": metrics.get("scheduled_makespan"),
+        "circuit_fidelity": fidelity_info.get("estimated_circuit_fidelity"),
+        "fidelity_breakdown": fidelity_info,
+        "state_fidelity": state_fid,
+        "probabilities": {
+            "source": source_probs,
+            "routed": routed_probs,
+        },
     }
 
 
@@ -519,11 +549,18 @@ def compile_circuit(req: CompileRequest):
         )
 
     # Source circuit stats
+    try:
+        source_fidelity = estimate_circuit_fidelity(circuit)
+    except Exception:
+        source_fidelity = {}
+
     source_stats = {
         "num_qubits": circuit.num_qubits,
         "depth": circuit.depth(),
         "total_gates": len(circuit.data),
         "two_qubit_gates": sum(len(inst.qubits) == 2 for inst in circuit.data),
+        "circuit_fidelity": source_fidelity.get("estimated_circuit_fidelity"),
+        "fidelity_breakdown": source_fidelity,
         "diagram": str(circuit.draw(output="text")),
         "qasm": qasm2.dumps(circuit),
     }
@@ -555,6 +592,7 @@ def compile_circuit(req: CompileRequest):
                     optimization_level=0)
                 validate_two_qubit_legality(sabre_qasm_circuit, coupling_graph)
                 elapsed = time.perf_counter() - started
+                sabre_fidelity = estimate_circuit_fidelity(sabre_out["circuit"])
                 results["sabre"] = {
                     "method": "sabre",
                     "swaps_added": sabre_out.get("swap_count", 0),
@@ -576,6 +614,13 @@ def compile_circuit(req: CompileRequest):
                     "circuit_layers": circuit_to_json_layers(sabre_out["circuit"])[:150],
                     "semantic_validation": sabre_out.get("semantic_validation", True),
                     "legality_verified": True,
+                    "circuit_fidelity": sabre_fidelity.get("estimated_circuit_fidelity"),
+                    "fidelity_breakdown": sabre_fidelity,
+                    "state_fidelity": None,
+                    "probabilities": {
+                        "source": compute_measurement_probabilities(circuit),
+                        "routed": None,
+                    },
                 }
             except Exception as exc:
                 results["sabre"] = {"error": str(exc), "method": "sabre"}

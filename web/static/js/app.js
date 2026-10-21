@@ -82,6 +82,13 @@ document.addEventListener("DOMContentLoaded", () => {
     depthFooter: document.getElementById("depthFooter"),
     valTwoQubitOps: document.getElementById("valTwoQubitOps"),
     valTotalGates: document.getElementById("valTotalGates"),
+    valCircuitFidelity: document.getElementById("valCircuitFidelity"),
+    fidelityBadge: document.getElementById("fidelityBadge"),
+    valStateFidelity: document.getElementById("valStateFidelity"),
+    fStateVal: document.getElementById("fStateVal"),
+    fCircuitVal: document.getElementById("fCircuitVal"),
+    fSwapVal: document.getElementById("fSwapVal"),
+    probChartContainer: document.getElementById("probChartContainer"),
     valRuntime: document.getElementById("valRuntime"),
     semanticStatusText: document.getElementById("semanticStatusText"),
 
@@ -644,6 +651,48 @@ cx q[0], q[3];
     el.valTwoQubitOps.textContent = primary.two_qubit_count;
     el.valTotalGates.textContent = primary.routed_gate_count;
 
+    // Fidelity Metrics Card & Details
+    if (primary.circuit_fidelity !== undefined && primary.circuit_fidelity !== null) {
+      const fPct = (primary.circuit_fidelity * 100).toFixed(2);
+      if (el.valCircuitFidelity) el.valCircuitFidelity.textContent = `${fPct}%`;
+      if (el.fidelityBadge) {
+        const fScore = Number(primary.circuit_fidelity).toFixed(3);
+        if (primary.circuit_fidelity >= 0.95) {
+          el.fidelityBadge.textContent = `F = ${fScore}`;
+          el.fidelityBadge.className = "metric-badge success";
+        } else if (primary.circuit_fidelity >= 0.8) {
+          el.fidelityBadge.textContent = `F = ${fScore}`;
+          el.fidelityBadge.className = "metric-badge info";
+        } else {
+          el.fidelityBadge.textContent = `F = ${fScore}`;
+          el.fidelityBadge.className = "metric-badge warning";
+        }
+      }
+    } else {
+      if (el.valCircuitFidelity) el.valCircuitFidelity.textContent = "--";
+      if (el.fidelityBadge) {
+        el.fidelityBadge.textContent = "--";
+        el.fidelityBadge.className = "metric-badge neutral";
+      }
+    }
+
+    if (primary.state_fidelity !== undefined && primary.state_fidelity !== null) {
+      const sfVal = Number(primary.state_fidelity);
+      if (el.valStateFidelity) el.valStateFidelity.textContent = `${sfVal.toFixed(4)} (Ideal)`;
+      if (el.fStateVal) el.fStateVal.textContent = `${sfVal.toFixed(6)} (100.0% Unitary Overlap)`;
+    } else {
+      if (el.valStateFidelity) el.valStateFidelity.textContent = "N/A";
+      if (el.fStateVal) el.fStateVal.textContent = "N/A (resets / >12Q)";
+    }
+
+    if (primary.fidelity_breakdown) {
+      const fb = primary.fidelity_breakdown;
+      if (el.fCircuitVal) el.fCircuitVal.textContent = `${(fb.estimated_circuit_fidelity * 100).toFixed(2)}%`;
+      const swapCost = ((1 - fb.swap_fidelity_impact) * 100).toFixed(2);
+      if (el.fSwapVal) el.fSwapVal.textContent = `-${swapCost}%`;
+    }
+
+
     // Validation & Runtime
     el.valRuntime.textContent = primary.runtime_ms;
     el.semanticStatusText.textContent = primary.semantic_validation
@@ -669,13 +718,16 @@ cx q[0], q[3];
     renderMappingChips(primary.initial_mapping, el.initialMappingChips);
     renderMappingChips(primary.final_mapping, el.finalMappingChips);
 
-    // 7. Replay Scrubber Setup
+    // 7. Probability Distribution & Density Tab
+    renderProbabilityChart(primary.probabilities);
+
+    // 8. Replay Scrubber Setup
     const trace = primary.trace || [];
     el.replayScrubber.max = Math.max(0, trace.length - 1);
     el.replayScrubber.value = 0;
     setReplayStep(0);
 
-    // 8. Update Hardware Topology Canvas with Mapping & Edge Utilization
+    // 9. Update Hardware Topology Canvas with Mapping & Edge Utilization
     drawHardwareTopology(
       [],
       null,
@@ -683,6 +735,63 @@ cx q[0], q[3];
       primary.edge_utilization
     );
   }
+
+  function renderProbabilityChart(probs) {
+    if (!el.probChartContainer) return;
+    el.probChartContainer.innerHTML = "";
+
+    if (!probs || !probs.source) {
+      el.probChartContainer.innerHTML = `
+        <div class="empty-prob-note">
+          Statevector probability distribution not computed (circuit exceeds 12 qubits or contains non-unitary resets).
+        </div>`;
+      return;
+    }
+
+    const sourceMap = probs.source || {};
+    const routedMap = probs.routed || {};
+    const allKeys = Array.from(new Set([...Object.keys(sourceMap), ...Object.keys(routedMap)])).sort();
+
+    if (allKeys.length === 0) {
+      el.probChartContainer.innerHTML = `
+        <div class="empty-prob-note">No significant basis state amplitudes detected.</div>`;
+      return;
+    }
+
+    allKeys.forEach((key) => {
+      const pSource = sourceMap[key] !== undefined ? sourceMap[key] : 0.0;
+      const pRouted = routedMap[key] !== undefined ? routedMap[key] : 0.0;
+      const diff = Math.abs(pSource - pRouted);
+      const isMatch = diff < 0.005;
+
+      const row = document.createElement("div");
+      row.className = "prob-row";
+
+      const sourceWidth = Math.max(pSource > 0 ? 5 : 0, pSource * 100);
+      const routedWidth = Math.max(pRouted > 0 ? 5 : 0, pRouted * 100);
+
+      row.innerHTML = `
+        <div class="prob-state-label">|${key}⟩</div>
+        <div class="prob-bars-group">
+          <div class="prob-bar-track" title="Source: ${(pSource * 100).toFixed(2)}%">
+            <div class="prob-bar-fill source" style="width: ${sourceWidth}%;">
+              ${(pSource * 100).toFixed(1)}%
+            </div>
+          </div>
+          <div class="prob-bar-track" title="Routed: ${(pRouted * 100).toFixed(2)}%">
+            <div class="prob-bar-fill routed" style="width: ${routedWidth}%;">
+              ${(pRouted * 100).toFixed(1)}%
+            </div>
+          </div>
+        </div>
+        <div class="prob-delta-tag ${isMatch ? "matched" : "diff"}">
+          ${isMatch ? "✓ Invariant" : `Δ ${(diff * 100).toFixed(1)}%`}
+        </div>
+      `;
+      el.probChartContainer.appendChild(row);
+    });
+  }
+
 
   function renderComparisonCards(allResults) {
     el.comparisonGrid.innerHTML = "";
@@ -722,9 +831,14 @@ cx q[0], q[3];
           <span class="comp-stat-val">${res.routed_depth} (${res.depth_delta >= 0 ? "+" : ""}${res.depth_overhead_percent}%)</span>
         </div>
         <div class="comp-stat-row">
+          <span class="comp-stat-label">Est. Fidelity:</span>
+          <span class="comp-stat-val">${res.circuit_fidelity !== undefined && res.circuit_fidelity !== null ? (res.circuit_fidelity * 100).toFixed(1) + "%" : "--"}</span>
+        </div>
+        <div class="comp-stat-row">
           <span class="comp-stat-label">Runtime:</span>
           <span class="comp-stat-val">${res.runtime_ms} ms</span>
         </div>
+
       `;
       el.comparisonGrid.appendChild(card);
     });

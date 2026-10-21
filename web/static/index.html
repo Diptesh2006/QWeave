@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=20261021_02">
 </head>
 <body>
   <!-- Background Glow Effects -->
@@ -269,7 +269,7 @@
             <p class="metric-footer" id="depthFooter">Δ Depth: 0 layers</p>
           </div>
 
-          <!-- Card 3: 2-Qubit Operations -->
+          <!-- Card 3: Two-Qubit Operations -->
           <div class="metric-card" id="metricCardOps">
             <div class="metric-header">
               <span class="metric-title">Two-Qubit Ops</span>
@@ -282,7 +282,21 @@
             <p class="metric-footer" id="opsFooter">Total Gates: <span id="valTotalGates">0</span></p>
           </div>
 
-          <!-- Card 4: Validation & Latency -->
+          <!-- Card 4: Estimated Fidelity -->
+          <div class="metric-card highlight-fidelity" id="metricCardFidelity">
+            <div class="metric-header">
+              <span class="metric-title">Circuit Fidelity</span>
+              <span class="metric-badge neutral" id="fidelityBadge">Pending</span>
+            </div>
+            <div class="metric-value-wrap">
+              <span class="metric-value" id="valCircuitFidelity">--</span>
+              <span class="metric-unit">est.</span>
+            </div>
+            <p class="metric-footer" id="fidelityFooter">State Overlap: <span id="valStateFidelity">--</span></p>
+          </div>
+
+
+          <!-- Card 5: Validation & Latency -->
           <div class="metric-card highlight-verify" id="metricCardVerify">
             <div class="metric-header">
               <span class="metric-title">Validation Status</span>
@@ -317,8 +331,10 @@
             <button class="tab-btn active" data-target="tabDiagram">Routed Circuit</button>
             <button class="tab-btn" data-target="tabReplay">Step-by-Step Replay</button>
             <button class="tab-btn" data-target="tabMapping">Qubit Allocation</button>
+            <button class="tab-btn" data-target="tabFidelity">📊 Fidelity & Probability</button>
             <button class="tab-btn" data-target="tabQasm">OpenQASM Code</button>
           </div>
+
 
           <!-- Result View 1: Diagram & Visual Circuit Board -->
           <div class="result-tab-content active" id="tabDiagram">
@@ -387,7 +403,66 @@
             </div>
           </div>
 
-          <!-- Result View 4: OpenQASM Code -->
+          <!-- Result View 4: Fidelity & Probability Distribution -->
+          <div class="result-tab-content" id="tabFidelity">
+            <div class="fidelity-view-container">
+              <!-- Top Row: Fidelity Cards -->
+              <div class="fidelity-cards-row">
+                <div class="fidelity-stat-card">
+                  <div class="f-stat-header">
+                    <span class="f-stat-title">Quantum State Fidelity</span>
+                    <span class="metric-badge success" id="fStateBadge">Ideal Overlap</span>
+                  </div>
+                  <div class="f-stat-val" id="fStateVal">--</div>
+                  <p class="f-stat-desc">Exact unitary overlap |⟨ψ_expected|ψ_actual⟩|² between source and routed circuits.</p>
+                </div>
+
+                <div class="fidelity-stat-card">
+                  <div class="f-stat-header">
+                    <span class="f-stat-title">Estimated Gate Fidelity</span>
+                    <span class="metric-badge info" id="fCircuitBadge">Hardware Proxy</span>
+                  </div>
+                  <div class="f-stat-val" id="fCircuitVal">--</div>
+                  <p class="f-stat-desc">Compound average gate fidelity ∏(1 - ε_g) across all physical operations.</p>
+                </div>
+
+                <div class="fidelity-stat-card">
+                  <div class="f-stat-header">
+                    <span class="f-stat-title">SWAP Fidelity Overhead</span>
+                    <span class="metric-badge neutral" id="fSwapBadge">Overhead</span>
+                  </div>
+                  <div class="f-stat-val" id="fSwapVal">--</div>
+                  <p class="f-stat-desc">Fidelity penalty specifically attributable to inserted routing SWAPs.</p>
+                </div>
+              </div>
+
+
+              <!-- Bottom Row: Probability Distribution Visualizer -->
+              <div class="probability-section-card">
+                <div class="view-toolbar">
+                  <div class="toolbar-left">
+                    <span class="toolbar-title">Measurement Outcome Probability Distribution (Logical Basis)</span>
+                    <span class="toolbar-sub" id="probDistributionSub">Source vs Routed Output State (Mapped back to Logical Qubits)</span>
+                  </div>
+                  <div class="legend-wrap">
+                    <span class="legend-item"><span class="legend-dot legend-source"></span> Source Circuit</span>
+                    <span class="legend-item"><span class="legend-dot legend-routed"></span> Routed (Mapped)</span>
+                  </div>
+                </div>
+
+                <div class="prob-chart-container" id="probChartContainer">
+                  <div class="empty-prob-note">Run compilation to generate probability distribution.</div>
+                </div>
+
+                <div class="prob-footer-note">
+                  <span class="note-icon">ℹ️</span>
+                  <span>Physical measurement bitstrings are dynamically inverted through <code>final_mapping</code> to reconstruct the original logical basis states. Statevector fidelity is evaluated for circuits with ≤12 qubits without mid-circuit resets.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result View 5: OpenQASM Code -->
           <div class="result-tab-content" id="tabQasm">
             <div class="view-toolbar">
               <div class="toolbar-left">
@@ -405,6 +480,7 @@
     </section>
   </main>
 
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v=20261021_02"></script>
 </body>
 </html>
+
