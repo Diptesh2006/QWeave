@@ -1,251 +1,322 @@
-\documentclass[a4paper,10pt,twocolumn]{article}
-\usepackage[margin=1.8cm]{geometry}
-\usepackage{mathptmx}
+\documentclass[a4paper,11pt,twocolumn]{article}
+\usepackage[margin=2.54cm,columnsep=0.6cm]{geometry}
+\usepackage{newtxtext}
 \usepackage{amsmath,amssymb}
-\usepackage{amsthm}
-\newtheorem{theorem}{Theorem}
-\newtheorem{lemma}[theorem]{Lemma}
-\newtheorem{proposition}[theorem]{Proposition}
-\usepackage{url}
 \usepackage{booktabs}
 \usepackage{graphicx}
-\title{QWeave: Correctness-First Deterministic and Learned Qubit Routing}
+\usepackage{natbib}
+\usepackage{titlesec}
+\usepackage{url}
+\setlength{\parindent}{0.38cm}
+\setlength{\parskip}{0pt}
+\titleformat{\section}{\bfseries\fontsize{12}{14}\selectfont}{\thesection}{0.5em}{}
+\titleformat{\subsection}{\bfseries\fontsize{11}{13.6}\selectfont}{\thesubsection}{0.5em}{}
+\titlespacing*{\section}{0pt}{7pt}{3pt}
+\titlespacing*{\subsection}{0pt}{5pt}{2pt}
+\pagestyle{empty}
+\title{\fontsize{14.5}{17}\selectfont\textbf{QWeave: Correctness-First Deterministic and Learned Qubit Routing}}
 \author{%
-Atharva Sheersh Pandey$^{1}$, Diptesh Das$^{1}$, Shrivardhini N$^{1}$,\\
-Haridasu Sreedhar$^{1}$, Prof. Bhuvaneswari M$^{2}$\\[2pt]
-\small atharva.sheersh2024@vitstudent.ac.in; diptesh.das2024@vitstudent.ac.in;\\
-\small shrivardhini.n2024@vitstudent.ac.in; haridasu.sreedhar2024@vitstudent.ac.in\\[2pt]
-\small $^{1}$School of Computer Science and Engineering, VIT Vellore\\
-\small $^{2}$Faculty Guide, School of Computer Science and Engineering, VIT Vellore
+\fontsize{12}{14}\selectfont
+\textbf{Atharva Sheersh Pandey}$^{1}$, \textbf{Diptesh Das}$^{1}$,
+\textbf{Shrivardhini N}$^{1}$,\\
+\textbf{Haridasu Sreedhar}$^{1}$, \textbf{Prof. Bhuvaneswari M}$^{2}$\\[2pt]
+\texttt{atharva.sheersh2024@vitstudent.ac.in};
+\texttt{diptesh.das2024@vitstudent.ac.in};\\
+\texttt{shrivardhini.n2024@vitstudent.ac.in};
+\texttt{haridasu.sreedhar2024@vitstudent.ac.in}\\[2pt]
+$^{1}$School of Computer Science and Engineering, VIT Vellore\\
+$^{2}$Faculty Guide, School of Computer Science and Engineering, VIT Vellore
 }
 \date{}
 
 \begin{document}
 \maketitle
 \begin{abstract}
-Limited two-qubit connectivity requires a compiler to assign logical qubits
-to physical sites and route nonlocal interactions. These choices can add
-SWAPs and circuit depth, while an apparently low-cost circuit is useful only
-if it preserves the intended computation. This paper develops a
-correctness-first evaluation of QWeave's deterministic and learned compiler
-paths. The deterministic path combines a weighted interaction-graph mapper,
-strict local improvement, and shortest-path SWAP routing; identity mapping,
-Qiskit SABRE, and a small exact initial-mapping oracle provide separate
-reference points. Structural replay is supplemented by exact small-unitary
-checks and deterministic statevector probes for wider circuits and idle
-physical sites. A fixed-route scheduler and directed-gate lowering pass
-measure timing effects separately from mapping and routing. The learned path
-combines a guarded Gymnasium environment, masked graph actor--critic, and PPO
-with deterministic fallback. Benchmark v2 freezes 180 synthetic cases before
-evaluation, including 36 held-out QFT and hardware-efficient test cases at
-four, six, and eight logical qubits. Ten policies are trained for 4,096 steps
-across five seeds, producing 792 test records. Every tested output passed its
-applicable numerical semantic check, and every direction-lowered cost circuit
-passed ordered-coupler legality. The paired GNN--PPO minus weighted depth
-difference was 0 gates with a 95\% bootstrap interval of $[0,0]$.
-GNN--PPO and no-message-passing PPO also had paired median depth and SWAP
-differences of 0 with intervals $[0,0]$. Training strongly improved on the
-untrained policy, but the study does not show a message-passing or
+Restricted two-qubit connectivity forces a compiler to place logical qubits
+on physical sites and insert movement before nonlocal interactions. This paper
+studies QWeave as a correctness-first compiler rather than treating low depth
+alone as sufficient evidence. The deterministic path combines weighted initial
+mapping, strict local improvement, and shortest-path SWAP routing; identity
+mapping, Qiskit SABRE, and a small exact initial-mapping oracle are distinct
+references. We prove termination of the finite mapping descent, preservation of
+the routing layout invariant and supported unitary semantics, feasibility and
+fixed-DAG optimality of the list scheduler, equivalence of directed-CNOT
+lowering, and termination of the guarded learned route. These guarantees do not
+prove policy quality. That question is evaluated on frozen benchmark v2:
+180 synthetic cases, five final training seeds, and 792 held-out outputs.
+Every tested output passed its applicable numerical semantic check and every
+direction-lowered cost circuit passed ordered-coupler legality. The paired
+GNN--PPO minus weighted depth difference was 0 gates with a 95\% bootstrap
+interval of $[0,0]$; GNN--PPO and no-message-passing PPO also had paired median
+depth and SWAP differences of 0. Training improved markedly on an untrained
+policy, but the study supplies no evidence of a message-passing or
 learned-routing advantage over the deterministic references.
 \end{abstract}
 
 \section{Introduction}
-Near-term devices constrain which physical qubit pairs can perform
-two-qubit operations. A logical circuit that ignores this graph requires a
-physical assignment and, where necessary, SWAP insertion before its gates
-can execute. Layout and routing are related but distinct compilation stages
-\cite{ibmtranspiler}. SABRE uses bidirectional heuristic search to improve
-layout and SWAP selection \cite{li2019sabre}. It is therefore an essential
-baseline, rather than a straw-man comparator.
+Quantum algorithms are commonly written with unrestricted two-qubit
+interactions, whereas a device exposes a finite coupling graph. Compilation
+must therefore choose an initial placement and transform every nonlocal
+interaction into operations supported by that graph. Qiskit describes layout,
+routing, translation, optimization, and scheduling as separate stages
+\citep{ibmtranspiler}. SABRE uses bidirectional heuristic search for layout and
+SWAP selection \citep{li2019sabre}; it is consequently a substantive baseline.
 
-QWeave currently supplies a deterministic reference path that makes the
-mapping convention, tie-breaking, layout updates, and metric extraction
-explicit. The research question is whether its weighted static mapping
-surrogate or guarded learned router helps on defined circuit families once
-the routed circuits are checked for legality and semantics. The scheduler is
-measured on each fixed legal route, while learned routing is evaluated through
-separate message-passing and training controls.
-Existing reinforcement-learning
-and graph-guided routing studies \cite{pozzi2020rl,sinha2022gnn} already
-establish that learning for this problem is not a novelty claim by itself.
-This manuscript's contribution is a precise implementation account, an
-auditable comparative protocol, and a bounded negative result on the tested
-message-passing and learned-routing advantage, not a claim of optimality.
+QWeave asks a narrower question: under a declared circuit language, topology,
+mapping convention, and validation protocol, what do deterministic placement,
+guarded learned routing, and post-routing scheduling each contribute? The
+answer requires more than an edge-legality check. An emitted circuit can use
+only valid couplers and still implement the wrong logical computation if a
+layout update, source SWAP, parameter, or classical destination is mishandled.
+For that reason, QWeave combines trace replay with numerical checks and keeps
+mapping, routing, scheduling, and direction lowering as separately reported
+stages.
+
+This paper contributes (i) an explicit deterministic compiler and adapter
+contract, (ii) formal correctness arguments for the invariants that can be
+proved from that contract, (iii) a guarded GNN--PPO implementation with
+message-passing and training controls, and (iv) a frozen held-out comparison
+with paired uncertainty estimates and counterexamples. Learning-based routing
+already exists \citep{pozzi2020rl,sinha2022gnn}; neither the use of PPO nor a
+graph encoder is claimed as novel. The result is also deliberately bounded:
+the tested policy does not outperform the weighted deterministic reference.
 
 \section{Related Work}
-SABRE combines an initial layout search and SWAP-based routing, including
-forward--backward circuit traversal \cite{li2019sabre}. In Qiskit, layout
-and routing may both change the circuit and add idle physical sites
-\cite{ibmsabre}. Pozzi et al. studied deep reinforcement learning for qubit
-routing with depth overhead as an objective \cite{pozzi2020rl}. Sinha et al.
-combined a graph neural network with Monte Carlo tree search, rather than
-PPO, for depth-oriented routing \cite{sinha2022gnn}. Nannicini et al.
-formulated joint assignment and routing through integer programming on
-small instances \cite{nannicini2022ip}. QWeave's CP-SAT component has a
-narrower role: it optimizes only the static initial-mapping surrogate. It
-cannot certify optimal SWAP count or compiled depth.
+Earlier qubit-allocation systems model placement and movement under
+architecture constraints. Siraichi et al. formulate qubit allocation as a
+compiler problem, while Zulehner et al. combine architecture-aware mapping with
+heuristic search for IBM devices \citep{siraichi2018allocation,zulehner2019efficient}.
+Cowtan et al. give an architecture-agnostic routing methodology, and Childs et
+al. study circuit transformations through routing via matchings and token
+swapping \citep{cowtan2019routing,childs2019transformations}. These works
+motivate separating initial placement from dynamic movement.
 
-\section{Problem and Deterministic Method}
-Let $C$ be an ordered circuit on logical qubits $L=\{0,\ldots,n-1\}$ and
-$H=(P,E_H)$ an undirected hardware graph. The initial injective mapping
-$m:L\rightarrow P$ uses the convention
-$m(\text{logical})=\text{physical}$. The interaction graph $G_C$ contains
-all logical qubits, including isolates; an edge $(i,j)$ has weight $w_{ij}$
-equal to its two-qubit interaction count in the default experiment. The
-static surrogate is
+SABRE combines reverse traversal for initial layout with heuristic SWAP search
+\citep{li2019sabre}. In Qiskit, its layout pass may also invoke routing and add
+idle physical qubits \citep{ibmsabre}. Pozzi et al. optimize routing with deep
+reinforcement learning, while Sinha et al. combine a graph neural network with
+Monte Carlo tree search \citep{pozzi2020rl,sinha2022gnn}. QWeave instead uses
+a masked graph actor--critic trained by PPO, drawing on graph convolution,
+clipped policy optimization, and generalized advantage estimation
+\citep{kipf2017gcn,schulman2017ppo,schulman2015gae}.
+
+Exact optimization provides a different reference. Nannicini et al. formulate
+joint assignment and routing by integer programming
+\citep{nannicini2022ip}. QWeave's CP-SAT component is intentionally smaller:
+it optimizes only a static initial-mapping surrogate for at most eight logical
+qubits. Its optimal status cannot certify minimum SWAP count or compiled depth.
+
+\section{Problem Formulation and Deterministic Path}
+Let $C=(g_1,\ldots,g_T)$ be an ordered supported circuit on logical qubits
+$L=\{0,\ldots,n-1\}$ and let $H=(P,E_H)$ be a connected undirected routing
+graph. An initial mapping $m_0:L\rightarrow P$ is injective and uses the
+convention $m(\mathrm{logical})=\mathrm{physical}$. The interaction graph
+$G_C$ includes isolated logical qubits. An edge $(i,j)$ has weight $w_{ij}$
+equal to its two-qubit interaction count. QWeave minimizes the placement
+surrogate
 \begin{equation}
  J(m)=\sum_{(i,j)\in E_C}w_{ij}\,d_H(m(i),m(j)),
  \label{eq:objective}
 \end{equation}
-where $d_H$ is shortest-path distance. An optional decay weights an
-interaction by $\delta^t$ for its circuit-operation index $t$, but the
-present smoke comparison uses integer counts without decay.
+where $d_H$ is shortest-path distance. Optional temporal decay replaces an
+interaction count by $\delta^t$, but benchmark v2 uses integer counts.
 
-The mapper seeds a high weighted-degree logical qubit on a high-centrality
-physical node. It then assigns remaining logical qubits greedily according
-to interaction weight with already mapped neighbours and partial distance
-cost. Deterministic order resolves ties. Pairwise local search exchanges
-assigned physical sites, selects the best pair, and accepts a move only if
-$J$ strictly decreases. Since the set of injective assignments is finite,
-strict descent terminates; the implementation also caps iterations.
+The mapper places a high weighted-degree logical qubit on a high-centrality
+physical node, then greedily assigns the remaining logical qubits using
+interaction weight and partial distance cost. Deterministic ordering resolves
+ties. Pairwise local search evaluates exchanges of occupied physical sites and
+accepts the best exchange only when it strictly decreases $J$.
 
-For each source operation in order, the fallback router finds a
-deterministically chosen shortest hardware path if its two mapped qubits
-are nonadjacent. It moves the first logical qubit toward the second by
-edge-local SWAPs, updates both the forward and inverse layout after every
-inserted SWAP, and emits the operation when adjacent. The final layout is returned
-alongside the physical circuit. Static distance in Eq.~\eqref{eq:objective}
-is a heuristic for future routing cost: a lower value does not imply fewer
-SWAPs, minimum legal depth, or higher physical fidelity.
+For each source operation, the deterministic router emits an adjacent
+one- or two-qubit gate immediately. If a two-qubit gate is nonlocal, it selects
+a deterministic shortest path and moves the first logical qubit toward the
+second through edge-local SWAPs. Both forward and inverse layouts are updated
+after every inserted SWAP. The Basic reference supplies identity mapping to
+this router; weighted mapping supplies the greedy local-search layout. SABRE is
+a separate Qiskit compiler path with a fixed seed.
 
-The deterministic Qiskit adapter accepts unconditioned one- and two-qubit
-gates, one-qubit resets, and a terminal measurement suffix while preserving
-global phase and classical destinations. It rejects barriers, higher-arity
-gates, dynamic control flow, and classically conditioned operations rather
-than silently passing unsupported semantics through the router. A trace with
-one event per emitted operation is replayed to check source operation order,
-parameters, quantum and classical targets, inserted SWAP layouts, and the
-final mapping. SABRE receives both orientations of each undirected routing
-edge so the paths use the same adjacency interpretation. Equal-width unitary
-circuits of at most six qubits use an exact layout-aware operator check;
-wider circuits and outputs with idle physical sites use deterministic
-layout-aware statevector probes up to 12 physical qubits. Reset and terminal
-measurement semantics remain structurally, rather than numerically, assessed.
+The Qiskit adapter accepts unconditioned one- and two-qubit gates, one-qubit
+resets, and a terminal measurement suffix while preserving global phase and
+classical destinations. It rejects barriers, higher-arity gates, dynamic
+control flow, and classically conditioned operations instead of silently
+passing unsupported semantics. A trace records one event for each source gate
+or inserted SWAP. Replay checks source order, parameters, targets, layout
+updates, and the final mapping. SABRE receives both orientations of every
+undirected routing edge so all methods share the same adjacency interpretation.
 
-The Basic reference uses identity mapping with this same router. The SABRE
-reference uses Qiskit transpilation at optimization level zero and a stated
-seed. CP-SAT minimizes an integer-scaled version of Eq.~\eqref{eq:objective}
-for at most eight logical qubits; only an \texttt{OPTIMAL} solver status
-certifies that scaled mapping objective. These comparisons isolate the
-layout choice from the shared deterministic router, while SABRE is a
-separate compiler path.
+\section{Formal Correctness Arguments}
+The propositions below cover algorithmic invariants under the stated input
+contract. They do not establish that the static objective predicts minimum
+route cost, that a learned policy is good, or that finite numerical probes are
+a proof over all inputs.
 
-\section{Post-Routing Scheduling}
-The implemented list scheduler accepts an already legal physical circuit.
-It constructs a dependency graph by preserving operation order on each
-physical qubit. For operation $i$ with positive duration $d_i$, the
-remaining critical-path rank and earliest start are
+\paragraph{Proposition 1 (mapping-search termination).}
+The strict pair-exchange local search terminates after finitely many accepted
+moves.
+
+\paragraph{Proof.}
+There are $|P|!/(|P|-|L|)!$ injective maps from $L$ to $P$, so the search space
+is finite. Every accepted move produces a previously unvisited objective level
+with strictly smaller $J$. A strictly descending sequence over a finite set
+cannot be infinite. The implementation's iteration cap is therefore an
+additional guard, not the basis of termination.
+
+\paragraph{Proposition 2 (layout and legality invariant).}
+After every emitted operation, the forward layout remains injective, its
+inverse agrees on occupied sites, and every emitted two-qubit operation uses an
+edge of $E_H$.
+
+\paragraph{Proof.}
+The claim holds initially by the mapping contract. An inserted SWAP exchanges
+the logical occupants of two adjacent physical sites; updating both maps by
+the same transposition preserves injectivity and inverse agreement. A source
+one-qubit gate cannot violate edge legality. A source two-qubit gate is emitted
+only when its current images are adjacent, either immediately or after the
+shortest-path swaps. Induction over the emitted sequence proves the claim.
+
+\paragraph{Theorem 1 (supported unitary semantics).}
+For an equal-width circuit containing only supported unitary one- and
+two-qubit gates, let $R_k$ be the physical route after the first $k$
+source gates, let $C_k$ be the corresponding logical prefix, and let $m_k$
+be the current layout. With $P_m$ denoting the wire
+permutation induced by $m$,
+\begin{equation}
+ U_{R_k}P_{m_0}=P_{m_k}U_{C_k}
+ \quad\text{for }0\leq k\leq T .
+ \label{eq:route-invariant}
+\end{equation}
+
+\paragraph{Proof.}
+At $k=0$ both prefixes are identities, so the equality holds. Assume it holds
+through source gate $k$. Every inserted physical SWAP permutes two adjacent
+wires, and the layout update records exactly that same transposition. The
+physical state interpreted through the updated layout therefore represents the
+same logical state. Once the operands are adjacent, applying the source gate to
+their current physical images has the same action as applying the logical gate
+before the current wire permutation. Composing these steps with the induction
+hypothesis proves the invariant for $k+1$. At $k=T$, the final routed unitary
+equals the logical unitary up to the declared initial and final permutations.
+
+\paragraph{Proposition 3 (fixed-route scheduling).}
+For positive operation durations and no resource constraints beyond physical
+qubit exclusivity, the list scheduler returns a feasible schedule. Its
+makespan equals the weighted critical-path length of the fixed per-qubit
+precedence DAG and is therefore minimal among schedules that preserve that DAG.
+
+\paragraph{Proof.}
+The DAG contains an edge between successive operations on each physical qubit.
+Consequently, incomparable ready operations share no qubit and may overlap.
+For operation $i$, the scheduler uses
 \begin{equation}
  r_i=d_i+\max_{j\in\mathrm{succ}(i)}r_j,
- \qquad s_i=\max_{j\in\mathrm{pred}(i)}(s_j+d_j),
+ \qquad
+ s_i=\max_{j\in\mathrm{pred}(i)}(s_j+d_j),
+ \label{eq:schedule}
 \end{equation}
-with an empty maximum defined as zero. Ready operations are prioritised by
-$r_i$, with source order resolving ties; disjoint work can share a start
-time. The output preserves every physical wire's gate order, global phase,
-and operation multiset. It does not insert SWAPs or use unproved gate
-commutations. Therefore its effect is measured as scheduled depth minus
-routed depth on the \emph{same} circuit, never as a comparison between two
-different mappings. Under unit durations, Qiskit's circuit depth already
-reflects this dependency parallelism, so a zero depth change is expected.
-Positive per-gate durations additionally yield a timed makespan but do not
-constitute a calibrated hardware result.
+with an empty maximum equal to zero. Thus each operation starts after every
+predecessor finishes, proving feasibility. Every schedule respecting the DAG
+has makespan at least its weighted critical path. Earliest-start recursion
+attains that bound, so the returned makespan is optimal for this fixed DAG.
+This statement does not allow gate commutation or model control electronics.
 
-Routing methods use a shared undirected adjacency graph. Hardware-cost
-evaluation then lowers each route to the declared directed couplers. A reverse
-CNOT is implemented by Hadamard conjugation around the available forward
-CNOT; a SWAP is decomposed into three CNOTs and each direction is lowered
-independently. Symmetric CZ, CP, and RZZ gates may use either coupler
-orientation. Scheduling and independent-error proxy costs are computed only
-after the lowered circuit passes ordered-arc legality. Pre-lowering legality,
-added operations, and added depth remain separate metrics. The durations and
-edge errors are declared synthetic assumptions, not device calibration.
+\paragraph{Proposition 4 (directed lowering).}
+If at least one orientation of an undirected routing edge supports CNOT, the
+lowering pass implements either requested CNOT orientation and an edge-local
+SWAP using only declared directed CNOTs and one-qubit Hadamards.
 
-\section{Guarded Learned Router}
-The learned path is isolated from the deterministic compiler. Its Gymnasium
-environment exposes an \textsc{Execute} action and one SWAP action for each
-sorted hardware edge. The observation contains five features per physical
-node, four features per hardware edge, a five-value frontier description,
-the current logical-to-physical mapping, and a binary legal-action mask.
-Illegal actions do not mutate the circuit or layout. If the policy repeatedly
-fails to make progress, or reaches the episode limit, the environment routes
-the current operation with the validated deterministic shortest-path method.
-Every completed episode is replay-validated before a routing result is
-returned. This guard ensures termination and legality on connected undirected
-hardware with contiguous labels, but may hide a weak policy behind fallback;
-fallback counts are therefore reported.
-
-The actor--critic encodes node features and performs two rounds of
-edge-conditioned message passing. It scores every hardware-edge SWAP and the
-\textsc{Execute} action after applying the legal-action mask. PPO uses clipped
-policy ratios, generalized advantage estimation, value and entropy terms, and
-gradient clipping. We train five explicit seeds. A zero-message-passing PPO
-control retains the optimizer and reward, while an untrained graph control
-retains the architecture without PPO updates. All learned variants begin with
-the weighted deterministic initial mapping, which makes this a routing-policy
-comparison rather than a learned-layout experiment. The theoretical guarantees underpinning both the deterministic architecture and the learned routing policy are formalized in Section \ref{sec:formal_guarantees}.
-
-\input{theory.tex}
-
-\section{Validation and Experimental Design}
-The structural validator checks mapping completeness, injectivity, source
-gate replay, inserted SWAP consistency, global phase, and undirected edge
-legality for every two-qubit emitted operation. Edge
-legality alone cannot establish that the logical unitary was preserved.
-For equal-width small unitary circuits, the test oracle constructs the
-permutations induced by initial and final layouts and checks
+\paragraph{Proof.}
+For a supported physical CNOT directed from $v$ to $u$, the opposite
+orientation satisfies
 \begin{equation}
- U_{\mathrm{routed}}P_{\mathrm{initial}}
- =P_{\mathrm{final}}U_C.
- \label{eq:equivalence}
+ \mathrm{CX}_{u\rightarrow v}
+ =(H_u\otimes H_v)\,
+ \mathrm{CX}_{v\rightarrow u}\,
+ (H_u\otimes H_v).
+ \label{eq:reverse-cx}
 \end{equation}
-The exact check covers equal-width circuits of at most six qubits. Wider
-unitary cases and circuits with idle physical sites use reproducible
-layout-aware statevector probes up to 12 physical qubits. Tests include mixed
-one- and two-qubit gates, source SWAPs, wider layouts, idle sites, and deliberate
-trace/layout corruption. Reset and terminal-measurement circuits use structural
-replay; branch-dependent dynamic control remains an explicit unsupported case.
+An undirected SWAP is three alternating CNOTs. Replacing each unavailable
+orientation by Equation~\eqref{eq:reverse-cx} preserves the product unitary
+and leaves every two-qubit instruction on an allowed ordered arc.
+
+\paragraph{Proposition 5 (guarded-route termination).}
+For a finite supported circuit on a finite connected routing graph, the
+guarded learned environment terminates and returns a legal route.
+
+\paragraph{Proof.}
+Each policy-controlled segment has a finite step limit. On repeated
+nonprogress or exhaustion, fallback selects a finite shortest path, performs
+adjacent swaps, and executes the current gate. Hence fallback advances the
+source index. A finite circuit permits only finitely many such advances, and
+Proposition 2 gives legality for every fallback operation. Replay validation
+must succeed before the environment returns a result.
+
+\section{Learned Router}
+The Gymnasium environment exposes an \textsc{Execute} action and one SWAP
+action for every sorted hardware edge. Its observation contains five features
+per physical node, four per hardware edge, a five-value frontier description,
+the current logical-to-physical mapping, and a binary legal-action mask.
+Illegal actions do not mutate the circuit or layout. Fallback counts are
+reported because the termination guard can conceal a weak policy.
+
+The actor--critic performs two rounds of edge-conditioned message passing and
+scores every edge SWAP plus \textsc{Execute}. PPO uses clipped policy ratios,
+generalized advantage estimation, value and entropy terms, and gradient
+clipping \citep{schulman2017ppo,schulman2015gae}. A zero-message-passing PPO
+control preserves the optimizer and reward, while an untrained graph control
+preserves the architecture without PPO updates. All variants start from the
+weighted deterministic map, making this a routing-policy comparison rather
+than a learned-layout experiment.
+
+\section{Validation and Experimental Protocol}
+Structural replay checks mapping completeness, injectivity, source-gate order,
+inserted SWAP consistency, global phase, and edge legality. For equal-width
+unitary circuits of at most six qubits, QWeave evaluates
+Equation~\eqref{eq:route-invariant} at $k=T$ as an exact operator equality.
+Wider unitary circuits and outputs with idle physical sites use reproducible
+layout-aware statevector probes up to 12 physical qubits. Exact equality is a
+semantic proof for the evaluated circuit; a finite probe set is evidence that
+can detect faults but is not a universal proof. Reset and terminal-measurement
+circuits receive structural replay. Branch-dependent dynamic control remains
+unsupported.
+
+After routing, the fixed-route scheduler measures depth or declared-duration
+makespan on the same legal route. A separate hardware-cost pass lowers CNOTs
+and SWAPs to declared directed couplers, validates ordered arcs, then evaluates
+the schedule and an independent-error proxy. Durations and edge errors are
+synthetic assumptions rather than device calibrations.
 
 Benchmark version 2.0 freezes 180 cases at four, six, and eight logical
-qubits, two instances per family, before evaluation. Sixty training cases use
-GHZ, layered-CX, seeded-interaction, Bernstein--Vazirani, and QAOA MaxCut
-families on path and ring hardware. Eighty-four validation cases cover
-topology transfer and held-out families. The 36 untouched test cases combine
-held-out QFT and hardware-efficient families with two-row grids,
-chorded rings, and larger grids containing idle physical sites. Every case
-stores QASM, source hash, undirected and directed edges, and declared synthetic
-edge-error values; the manifest hash is fixed before training.
+qubits, with two instances per family. Sixty training cases use GHZ,
+layered-CX, seeded-interaction, Bernstein--Vazirani, and QAOA MaxCut families;
+the latter follows the alternating-operator construction of
+\citet{farhi2014qaoa}. Eighty-four validation cases test topology transfer and
+held-out families. The 36 untouched test cases combine QFT circuits, motivated
+by the approximate transform of \citet{coppersmith2002qft}, and
+hardware-efficient circuits with two-row grids, chorded rings, and larger
+grids containing idle sites. Every case stores QASM, source hash, undirected
+and directed edges, and declared synthetic error values.
 
 Three candidates receive 1,024 training steps and validation seed 101. The
 selection score is median depth plus half the SWAP count plus five times the
-fallback count. The selected candidate is then trained for 4,096 steps at
-seeds 7, 17, 29, 41, and 53 for both GNN--PPO and the no-message control.
-The untrained control uses the same five initialisation seeds. SABRE uses the
-same five seeds; Basic and weighted routing are deterministic. Runtime is the
-median of three measurements after one warmup. Seeds are collapsed within
-each case before paired differences are formed. We report family quartiles,
-validity, fallbacks, runtime distributions, counterexamples, and deterministic
-95\% bootstrap intervals from 5,000 resamples with seed 20260921.
+fallback count. The selected candidate is trained for 4,096 steps at seeds 7,
+17, 29, 41, and 53 for both GNN--PPO and the no-message control. The untrained
+control uses the same initialization seeds. SABRE uses the same five seeds;
+Basic and weighted routing are deterministic. Runtime is the median of three
+measurements after one warmup. Seeds are collapsed within each case before
+paired differences are formed. Confidence intervals use 5,000 deterministic
+bootstrap resamples with seed 20260921.
 
-\section{Results and Limitations}
+\section{Results}
 A fresh local run passed 69 tests under Python 3.11.15 and Qiskit 2.5.2. The
 aggressive validation candidate scored 19.5; conservative and standard each
-scored 24.0. Table~\ref{tab:test-results} reports the 36-case held-out test
-aggregate. For seeded methods, each case contributes its within-case seed
-median before aggregation. All 792 outputs passed their applicable numerical
-semantic check. QWeave routes additionally passed symbolic replay; SABRE has
-no corresponding QWeave trace. Every unit-duration scheduling delta was zero.
+scored 24.0. Table~\ref{tab:test-results} summarizes the 36 held-out cases.
+For seeded methods, each case contributes its within-case seed median. All 792
+outputs passed their applicable numerical check. QWeave routes also passed
+symbolic replay; SABRE has no QWeave trace. Every unit-duration scheduling
+delta was zero, as expected when circuit depth already expresses the same
+per-qubit precedence.
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
 \caption{Benchmark-v2 test summary. Runtime is median wall time in seconds.}
 \label{tab:test-results}
@@ -262,23 +333,23 @@ No-message PPO & 36.0 & 0.0 & 0.1040 & 742 \\
 Untrained GNN & 198.0 & 193.0 & 0.6681 & 8059 \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 The paired GNN--PPO minus weighted depth difference was 0 gates with interval
 $[0,0]$; versus SABRE it was 0 with interval $[0,5]$. Its paired SWAP
 difference versus weighted routing was 0 with interval $[0,5]$. GNN--PPO and
-no-message PPO had paired median depth and SWAP differences of 0 with intervals
-$[0,0]$, providing no evidence that message passing helped. Training did
-matter relative to the untrained GNN: the paired GNN--PPO depth difference was
-$-162.5$ with interval $[-184,-106]$, and the SWAP difference was $-175$ with
-interval $[-223,-148]$.
+no-message PPO had paired median depth and SWAP differences of 0 with
+intervals $[0,0]$, so the experiment supplies no evidence that message passing
+helped. Training did matter relative to the untrained GNN: the paired depth
+difference was $-162.5$ with interval $[-184,-106]$, and the SWAP difference
+was $-175$ with interval $[-223,-148]$.
 
-Family results expose the aggregate mechanism. On hardware-efficient circuits,
+Family results explain the aggregate. On hardware-efficient circuits,
 weighted, GNN--PPO, and no-message PPO all had median depth 27 and no SWAPs. On
 QFT, weighted routing had median depth 71.5 and 16.5 SWAPs, GNN--PPO had 83.5
 and 41, and no-message PPO had 90 and 31.5. GNN--PPO improved by eight depth
-layers on \texttt{qft\_i1\_6q\_chorded\_ring}, but regressed by 89 depth gates and
-130 SWAPs on \texttt{qft\_i1\_8q\_grid2}. The GNN policy invoked 4,543 test
+layers on \texttt{qft\_i1\_6q\_chorded\_ring}, but regressed by 89 depth gates
+and 130 SWAPs on \texttt{qft\_i1\_8q\_grid2}. It invoked 4,543 test
 fallbacks, compared with 742 for no-message PPO and zero for deterministic
 methods. Seed 29 was unstable, ending with 212 training fallbacks and a recent
 mean return near $-103$.
@@ -292,43 +363,45 @@ the GNN curve degrades more strongly late in training.}
 \label{fig:learning-curves}
 \end{figure*}
 
-Before direction lowering, most routed outputs were illegal on the one-way
-couplers. After reverse-CNOT and SWAP synthesis, all 792 cost circuits passed
-ordered-arc legality. Median added depth was 32 for weighted routing, 34 for
-SABRE, 37.5 for GNN--PPO, 28.5 for no-message PPO, 57 for Basic, and 441 for
-the untrained GNN. The corrected paired GNN--PPO minus weighted makespan
-difference was 0 ns with interval $[0,1113]$. These proxy costs therefore do
-not provide a learned advantage. The timings and error probabilities use
-declared synthetic values and are not device-calibration results.
+Before direction lowering, most routes were illegal on the one-way couplers.
+After reverse-CNOT and SWAP synthesis, all 792 cost circuits passed ordered-arc
+legality. Median added depth was 32 for weighted routing, 34 for SABRE, 37.5
+for GNN--PPO, 28.5 for no-message PPO, 57 for Basic, and 441 for the untrained
+GNN. The corrected paired GNN--PPO minus weighted makespan difference was
+0 ns with interval $[0,1113]$. These synthetic proxy costs provide no learned
+advantage.
 
-The original completed record is retained because audit found that its
-duration fields scheduled pre-lowering circuits on an undirected graph. A
-schema-2.1 replay used the saved checkpoints and frozen cases to recompute only
-direction-dependent cost fields. Route depth, SWAP count, runtime, policy,
-split, and semantic results did not change. This correction prevents the
-directed-legality check from being presented separately from an incompatible
-undirected cost calculation.
+\section{Threats to Validity}
+The formal results depend on the supported gate contract, a connected routing
+graph, correct primitive gate implementations, and the absence of unmodelled
+shared hardware resources. They prove preservation properties of the
+algorithms, not software free of defects; tests and independent reruns address
+implementation risk. Numerical probes for wider circuits are incomplete by
+construction. Measurement, reset, and dynamic-control semantics do not receive
+the same exact unitary argument.
 
-
+The empirical study uses synthetic circuits, durations, and error rates. Its
+five seeds and 36 held-out cases support paired statements about benchmark v2,
+not general performance or state-of-the-art rank. Runtime is machine-specific,
+and fallback makes the learned methods safe while also weakening the
+interpretation of policy-only behavior. The retained pre-correction record is
+disclosed because its duration fields scheduled pre-lowering circuits; the
+schema-2.1 replay recomputed only direction-dependent cost fields from saved
+checkpoints and frozen cases.
 
 \section{Conclusion}
-QWeave now combines an explicit deterministic reference, a small mapping
-oracle, fixed-route scheduling, and a guarded learned router with auditable
-ablation controls. Benchmark v2 extends semantic assessment to wider and
-idle-site unitary circuits, retains dynamic-control limits explicitly, and
-evaluates declared directed-coupler costs only after legal lowering. The
-results show a clear benefit of PPO training over an untrained policy, but no
-benefit from the tested message-passing component and no learned advantage
-over weighted routing. The finite synthetic suite does not establish optimal
-routing, calibrated fidelity, production readiness, or state-of-the-art
-performance. Further work should target policy stability, reduce fallback
-dependence, and preregister larger device-derived circuit and calibration
-suites before making a superiority claim.
+QWeave combines an explicit deterministic reference, a small mapping oracle,
+fixed-route scheduling, directed lowering, and a guarded learned router.
+Formal arguments now state why strict mapping descent terminates, why routing
+preserves the declared layout semantics, why the fixed-DAG scheduler is
+feasible and makespan-optimal under its model, why direction reversal is
+unitarily sound, and why fallback terminates. Benchmark v2 complements those
+proofs with held-out evidence. PPO training clearly improves on an untrained
+policy, but the tested message-passing component and learned route do not
+improve on weighted routing. Larger preregistered device-derived studies are
+needed before any superiority or calibrated-fidelity claim.
 
-\bibliographystyle{plain}
+\bibliographystyle{plainnat}
 \bibliography{references}
 \end{document}
-
-
-
 
