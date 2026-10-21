@@ -19,11 +19,26 @@ stronger than the available evidence; it is not peer review.
 | PPO training helps relative to an untrained GNN | Paired depth and SWAP intervals in the reviewed report | Supported on the held-out test split. |
 | The tested GNN message passing and learned path do not outperform deterministic references | Paired medians, intervals, family results, fallbacks, and counterexamples | Supported as a bounded negative result. No general superiority or SOTA claim is made. |
 | Hardware-cost results are calibrated | The paper explicitly says the durations and error rates are synthetic | No calibrated-hardware claim is made. |
+| Formal correctness claims cover all empirical outcomes | The proof section states its assumptions and separates invariants from learned-policy results | No universal performance proof is made. The propositions cover termination, legality, supported unitary semantics, fixed-DAG scheduling, and directed lowering only. |
 
 ## Citation audit
 
-Checked against the linked primary records on 2026-09-21:
+Checked against the linked primary records on 2026-09-22:
 
+- Childs, Schoute, and Unsal, TQC 2019, DOI
+  10.4230/LIPIcs.TQC.2019.3: circuit transformations, routing via matchings,
+  token swapping, and architecture constraints agree with the related-work
+  summary.
+- Coppersmith, arXiv:quant-ph/0201067: title, author, year, and approximate-QFT
+  benchmark motivation agree with the manuscript.
+- Cowtan et al., TQC 2019, DOI 10.4230/LIPIcs.TQC.2019.5: architecture-agnostic
+  qubit-routing scope agrees with the related-work summary.
+- Farhi, Goldstone, and Gutmann, arXiv:1411.4028: the alternating-operator QAOA
+  construction supports the benchmark-family description.
+- Kipf and Welling, arXiv:1609.02907 / ICLR 2017; Schulman et al.,
+  arXiv:1707.06347; and Schulman et al., arXiv:1506.02438: graph convolution,
+  PPO, and generalized advantage estimation agree with the learned-router
+  description.
 - Li, Ding, and Xie, arXiv:1809.02573 / ASPLOS 2019: title, authors,
   bidirectional SABRE description, reverse traversal, and mapping/routing role
   agree with the manuscript.
@@ -41,8 +56,11 @@ Checked against the linked primary records on 2026-09-21:
 - The Qiskit `SabreLayout` reference confirms iterative bidirectional routing,
   initial/final layouts, idle-qubit allocation, seed trials, and its default
   combined layout/routing behavior.
+- Siraichi et al., CGO 2018, DOI 10.1145/3168822, and Zulehner, Paler, and
+  Wille, IEEE TCAD 2019, DOI 10.1109/TCAD.2018.2846658: allocation and
+  architecture-aware mapping scope agree with the related-work discussion.
 
-No citation contradicts the claims for which it is used. The six bibliography
+No citation contradicts the claims for which it is used. The 15 bibliography
 entries are all cited in the manuscript and there are no unresolved citation
 keys.
 
